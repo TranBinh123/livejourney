@@ -2,7 +2,6 @@
 
 import { useEffect, useState, FormEvent } from 'react';
 import Link from 'next/link';
-
 import { CHECKPOINTS, TEAMS } from '@/lib/data';
 import { load, saveAll, reset } from '@/lib/store';
 import { AppState, TeamId } from '@/lib/types';
@@ -23,24 +22,18 @@ export default function AdminPanel() {
 
   const [draft, setDraft] = useState<AppState | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
-
-  const [results, setResults] = useState<TeamScoreResult[] | null>(null);
+  const [results, setResults] =
+    useState<TeamScoreResult[] | null>(null);
   const [showResults, setShowResults] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // --------------------------------------------------
-  // KIỂM TRA ĐĂNG NHẬP ADMIN
-  // --------------------------------------------------
   useEffect(() => {
     setAuthed(isAdminAuthed());
   }, []);
 
-  // --------------------------------------------------
-  // TẢI DỮ LIỆU TỪ SUPABASE
-  // --------------------------------------------------
   useEffect(() => {
     let active = true;
 
@@ -55,12 +48,6 @@ export default function AdminPanel() {
         }
       } catch (error) {
         console.error('Load data error:', error);
-
-        if (active) {
-          setSaveError(
-            'Không thể tải dữ liệu. Vui lòng kiểm tra kết nối Supabase.'
-          );
-        }
       } finally {
         if (active) {
           setLoadingData(false);
@@ -75,9 +62,6 @@ export default function AdminPanel() {
     };
   }, []);
 
-  // --------------------------------------------------
-  // ĐĂNG NHẬP
-  // --------------------------------------------------
   const handleLogin = (e: FormEvent) => {
     e.preventDefault();
 
@@ -90,9 +74,153 @@ export default function AdminPanel() {
     }
   };
 
-  // --------------------------------------------------
-  // ĐANG KIỂM TRA LOGIN
-  // --------------------------------------------------
+  const setLocation = (team: TeamId, cp: number) => {
+    setDraft((d) => {
+      if (!d) return d;
+
+      const next: AppState = JSON.parse(
+        JSON.stringify(d)
+      );
+
+      next.teams[team].current = cp;
+
+      return next;
+    });
+
+    setSavedAt(null);
+    setSaveError(null);
+  };
+
+  const toggleChallenge = (
+    team: TeamId,
+    cp: number,
+    slot: number,
+    value: boolean
+  ) => {
+    setDraft((d) => {
+      if (!d) return d;
+
+      const next: AppState = JSON.parse(
+        JSON.stringify(d)
+      );
+
+      const t = next.teams[team];
+
+      const arr = t.challengesDone[cp]
+        ? [...t.challengesDone[cp]]
+        : [false, false];
+
+      arr[slot] = value;
+
+      t.challengesDone[cp] = arr;
+
+      return next;
+    });
+
+    setSavedAt(null);
+    setSaveError(null);
+  };
+
+  const toggleComplete = (
+    team: TeamId,
+    cp: number,
+    value: boolean
+  ) => {
+    setDraft((d) => {
+      if (!d) return d;
+
+      const next: AppState = JSON.parse(
+        JSON.stringify(d)
+      );
+
+      const t = next.teams[team];
+
+      if (value) {
+        const now = new Date().toISOString();
+
+        t.completedAt[cp] = now;
+
+        if (cp === CHECKPOINTS.length - 1) {
+          t.finishedAt = now;
+        }
+      } else {
+        delete t.completedAt[cp];
+
+        if (cp === CHECKPOINTS.length - 1) {
+          delete t.finishedAt;
+        }
+      }
+
+      return next;
+    });
+
+    setSavedAt(null);
+    setSaveError(null);
+  };
+
+  const handleSave = async () => {
+    if (!draft || saving) return;
+
+    try {
+      setSaving(true);
+      setSaveError(null);
+
+      await saveAll(draft);
+
+      setSavedAt(
+        new Date().toLocaleTimeString('vi-VN')
+      );
+    } catch (error) {
+      console.error('Save error:', error);
+
+      setSaveError(
+        'Không thể lưu dữ liệu lên Supabase. Vui lòng kiểm tra kết nối và thử lại.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (saving) return;
+
+    const confirmed = window.confirm(
+      'Reset toàn bộ dữ liệu demo? Hành động này sẽ đưa 4 đội về trạng thái ban đầu.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setSaving(true);
+      setSaveError(null);
+
+      const next = await reset();
+
+      setDraft(next);
+      setSavedAt(null);
+      setResults(null);
+      setShowResults(false);
+    } catch (error) {
+      console.error('Reset error:', error);
+
+      setSaveError(
+        'Không thể reset dữ liệu trên Supabase.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTally = () => {
+    if (!draft) return;
+
+    const calculatedResults =
+      computeFinalScores(draft);
+
+    setResults(calculatedResults);
+    setShowResults(true);
+  };
+
   if (authed === null) {
     return (
       <main className="min-h-screen flex items-center justify-center text-slate-400">
@@ -101,9 +229,6 @@ export default function AdminPanel() {
     );
   }
 
-  // --------------------------------------------------
-  // CHƯA ĐĂNG NHẬP
-  // --------------------------------------------------
   if (!authed) {
     return (
       <main className="min-h-screen flex items-center justify-center p-4">
@@ -159,194 +284,16 @@ export default function AdminPanel() {
     );
   }
 
-  // --------------------------------------------------
-  // ĐANG TẢI DỮ LIỆU
-  // --------------------------------------------------
   if (loadingData || !draft) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center text-slate-400 gap-3">
-        <div className="text-lg">Đang tải dữ liệu...</div>
-        <div className="text-xs text-slate-600">
-          Đang kết nối với hệ thống điều khiển
-        </div>
+      <main className="min-h-screen flex items-center justify-center text-slate-400">
+        Đang tải dữ liệu...
       </main>
     );
   }
 
-  // --------------------------------------------------
-  // ĐỔI VỊ TRÍ ĐỘI
-  // --------------------------------------------------
-  const setLocation = (team: TeamId, cp: number) => {
-    setDraft((current) => {
-      if (!current) return current;
-
-      const next: AppState = JSON.parse(
-        JSON.stringify(current)
-      );
-
-      next.teams[team].current = cp;
-
-      return next;
-    });
-
-    setSavedAt(null);
-    setSaveError(null);
-  };
-
-  // --------------------------------------------------
-  // TICK / BỎ TICK THỬ THÁCH
-  //
-  // TC1 và TC2 HOÀN TOÀN ĐỘC LẬP.
-  // --------------------------------------------------
-  const toggleChallenge = (
-    team: TeamId,
-    cp: number,
-    slot: number,
-    value: boolean
-  ) => {
-    setDraft((current) => {
-      if (!current) return current;
-
-      const next: AppState = JSON.parse(
-        JSON.stringify(current)
-      );
-
-      const teamState = next.teams[team];
-
-      const arr = teamState.challengesDone[cp]
-        ? [...teamState.challengesDone[cp]]
-        : [false, false];
-
-      arr[slot] = value;
-
-      teamState.challengesDone[cp] = arr;
-
-      return next;
-    });
-
-    setSavedAt(null);
-    setSaveError(null);
-  };
-
-  // --------------------------------------------------
-  // HOÀN THÀNH ĐỊA ĐIỂM
-  //
-  // QUAN TRỌNG:
-  // Có thể Hoàn thành địa điểm dù TC1 / TC2 chưa xong.
-  // --------------------------------------------------
-  const toggleComplete = (
-    team: TeamId,
-    cp: number,
-    value: boolean
-  ) => {
-    setDraft((current) => {
-      if (!current) return current;
-
-      const next: AppState = JSON.parse(
-        JSON.stringify(current)
-      );
-
-      const teamState = next.teams[team];
-
-      if (value) {
-        const now = new Date().toISOString();
-
-        teamState.completedAt[cp] = now;
-
-        // Nếu đây là địa điểm cuối cùng → ghi nhận về đích
-        if (cp === CHECKPOINTS.length - 1) {
-          teamState.finishedAt = now;
-        }
-      } else {
-        delete teamState.completedAt[cp];
-
-        if (cp === CHECKPOINTS.length - 1) {
-          delete teamState.finishedAt;
-        }
-      }
-
-      return next;
-    });
-
-    setSavedAt(null);
-    setSaveError(null);
-  };
-
-  // --------------------------------------------------
-  // LƯU LÊN SUPABASE
-  // --------------------------------------------------
-  const handleSave = async () => {
-    if (!draft || saving) return;
-
-    try {
-      setSaving(true);
-      setSaveError(null);
-
-      await saveAll(draft);
-
-      setSavedAt(
-        new Date().toLocaleTimeString('vi-VN')
-      );
-    } catch (error) {
-      console.error('Save error:', error);
-
-      setSaveError(
-        'Không thể lưu dữ liệu lên Supabase. Vui lòng kiểm tra kết nối và thử lại.'
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // --------------------------------------------------
-  // RESET
-  // --------------------------------------------------
-  const handleReset = async () => {
-    if (saving) return;
-
-    const confirmed = window.confirm(
-      'Reset toàn bộ dữ liệu demo? Hành động này sẽ đưa 4 đội về trạng thái ban đầu.'
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setSaving(true);
-      setSaveError(null);
-
-      const next = await reset();
-
-      setDraft(next);
-      setSavedAt(null);
-      setResults(null);
-      setShowResults(false);
-    } catch (error) {
-      console.error('Reset error:', error);
-
-      setSaveError(
-        'Không thể reset dữ liệu trên Supabase.'
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // --------------------------------------------------
-  // TỔNG HỢP ĐIỂM
-  // --------------------------------------------------
-  const handleTally = () => {
-    if (!draft) return;
-
-    setResults(computeFinalScores(draft));
-    setShowResults(true);
-  };
-
-  // --------------------------------------------------
-  // GIAO DIỆN ADMIN
-  // --------------------------------------------------
   return (
     <main className="min-h-screen p-3 md:p-8">
-      {/* HEADER */}
       <header className="flex flex-wrap gap-3 justify-between items-center mb-5">
         <div>
           <div className="text-xs tracking-[.3em] text-amber-300">
@@ -362,7 +309,7 @@ export default function AdminPanel() {
           <button
             onClick={handleReset}
             disabled={saving}
-            className="text-xs text-red-300 border border-red-400/30 rounded-lg px-3 py-2 disabled:opacity-50"
+            className="text-xs text-red-300 border border-red-400/30 rounded-lg px-3 py-2 disabled:opacity-40"
           >
             Reset demo
           </button>
@@ -370,7 +317,7 @@ export default function AdminPanel() {
           <button
             onClick={handleTally}
             disabled={saving}
-            className="text-sm font-bold bg-amber-400 text-slate-950 rounded-lg px-4 py-2 disabled:opacity-50"
+            className="text-sm font-bold bg-amber-400 text-slate-950 rounded-lg px-4 py-2 disabled:opacity-40"
           >
             📊 Tổng hợp điểm
           </button>
@@ -378,7 +325,7 @@ export default function AdminPanel() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="text-sm font-bold bg-emerald-400 text-slate-950 rounded-lg px-4 py-2 disabled:opacity-60"
+            className="text-sm font-bold bg-emerald-400 text-slate-950 rounded-lg px-4 py-2 disabled:opacity-40"
           >
             {saving ? '⏳ Đang lưu...' : '💾 Lưu'}
           </button>
@@ -392,81 +339,74 @@ export default function AdminPanel() {
         </div>
       </header>
 
-      {/* TRẠNG THÁI LƯU */}
-      {savedAt && !saveError && (
+      {savedAt && (
         <div className="mb-4 text-xs text-emerald-400">
-          ✓ Đã lưu lúc {savedAt}
+          Đã lưu lúc {savedAt}
         </div>
       )}
 
       {saveError && (
-        <div className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-300">
-          ⚠️ {saveError}
+        <div className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {saveError}
         </div>
       )}
 
-      {/* ==================================================
-          MOBILE
-          ================================================== */}
+      {/* MOBILE */}
       <div className="md:hidden space-y-3">
-        {TEAMS.map((team) => {
-          const teamState = draft.teams[team.id];
-          const checkpoint =
-            CHECKPOINTS[teamState.current];
+        {TEAMS.map((t) => {
+          const ts = draft.teams[t.id];
+          const cp = CHECKPOINTS[ts.current];
 
           const doneArr =
-            teamState.challengesDone[
-              teamState.current
-            ] || [false, false];
+            ts.challengesDone[ts.current] ||
+            [false, false];
 
           const isComplete =
-            !!teamState.completedAt[
-              teamState.current
-            ];
+            !!ts.completedAt[ts.current];
 
           return (
             <div
-              key={team.id}
+              key={t.id}
               className="glass rounded-2xl p-4"
             >
-              {/* TEAM */}
               <div className="flex items-center gap-2 mb-3">
-                <span>{team.icon}</span>
+                <span>{t.icon}</span>
 
                 <span
                   className="font-semibold"
-                  style={{ color: team.color }}
+                  style={{ color: t.color }}
                 >
-                  {team.name}
+                  {t.name}
                 </span>
               </div>
 
-              {/* LOCATION */}
               <label className="block text-[11px] uppercase tracking-widest text-slate-500 mb-1">
                 Địa điểm
               </label>
 
               <select
-                value={teamState.current}
+                value={ts.current}
                 onChange={(e) =>
                   setLocation(
-                    team.id,
+                    t.id,
                     Number(e.target.value)
                   )
                 }
                 className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm mb-3"
               >
                 {CHECKPOINTS.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option
+                    key={c.id}
+                    value={c.id}
+                  >
                     {c.name}
                   </option>
                 ))}
               </select>
 
-              {/* CHALLENGES */}
-              {checkpoint.challenges > 0 && (
+              {cp.challenges > 0 && (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-1">
-                  {checkpoint.challenges >= 1 && (
+                  {cp.challenges >= 1 && (
                     <label className="flex items-center gap-2 text-sm text-slate-300">
                       <input
                         type="checkbox"
@@ -474,19 +414,18 @@ export default function AdminPanel() {
                         checked={!!doneArr[0]}
                         onChange={(e) =>
                           toggleChallenge(
-                            team.id,
-                            teamState.current,
+                            t.id,
+                            ts.current,
                             0,
                             e.target.checked
                           )
                         }
                       />
-
                       Thử thách 1
                     </label>
                   )}
 
-                  {checkpoint.challenges >= 2 && (
+                  {cp.challenges >= 2 && (
                     <label className="flex items-center gap-2 text-sm text-slate-300">
                       <input
                         type="checkbox"
@@ -494,21 +433,19 @@ export default function AdminPanel() {
                         checked={!!doneArr[1]}
                         onChange={(e) =>
                           toggleChallenge(
-                            team.id,
-                            teamState.current,
+                            t.id,
+                            ts.current,
                             1,
                             e.target.checked
                           )
                         }
                       />
-
                       Thử thách 2
                     </label>
                   )}
                 </div>
               )}
 
-              {/* COMPLETE */}
               <label className="flex items-center gap-2 text-sm mt-3 pt-3 border-t border-white/10">
                 <input
                   type="checkbox"
@@ -516,8 +453,8 @@ export default function AdminPanel() {
                   checked={isComplete}
                   onChange={(e) =>
                     toggleComplete(
-                      team.id,
-                      teamState.current,
+                      t.id,
+                      ts.current,
                       e.target.checked
                     )
                   }
@@ -532,9 +469,7 @@ export default function AdminPanel() {
         })}
       </div>
 
-      {/* ==================================================
-          DESKTOP / TABLET
-          ================================================== */}
+      {/* DESKTOP / TABLET */}
       <div className="hidden md:block glass rounded-2xl p-4 overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm border-collapse">
           <thead>
@@ -554,48 +489,41 @@ export default function AdminPanel() {
           </thead>
 
           <tbody>
-            {TEAMS.map((team) => {
-              const teamState = draft.teams[team.id];
-
-              const checkpoint =
-                CHECKPOINTS[teamState.current];
+            {TEAMS.map((t) => {
+              const ts = draft.teams[t.id];
+              const cp = CHECKPOINTS[ts.current];
 
               const doneArr =
-                teamState.challengesDone[
-                  teamState.current
-                ] || [false, false];
+                ts.challengesDone[ts.current] ||
+                [false, false];
 
               const isComplete =
-                !!teamState.completedAt[
-                  teamState.current
-                ];
+                !!ts.completedAt[ts.current];
 
               return (
                 <tr
-                  key={team.id}
+                  key={t.id}
                   className="border-t border-white/10"
                 >
-                  {/* TEAM */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <span>{team.icon}</span>
+                      <span>{t.icon}</span>
 
                       <span
                         className="font-semibold"
-                        style={{ color: team.color }}
+                        style={{ color: t.color }}
                       >
-                        {team.name}
+                        {t.name}
                       </span>
                     </div>
                   </td>
 
-                  {/* LOCATION */}
                   <td className="p-3">
                     <select
-                      value={teamState.current}
+                      value={ts.current}
                       onChange={(e) =>
                         setLocation(
-                          team.id,
+                          t.id,
                           Number(e.target.value)
                         )
                       }
@@ -612,17 +540,16 @@ export default function AdminPanel() {
                     </select>
                   </td>
 
-                  {/* TC1 */}
                   <td className="p-3 text-center">
-                    {checkpoint.challenges >= 1 ? (
+                    {cp.challenges >= 1 ? (
                       <input
                         type="checkbox"
                         className="w-6 h-6 accent-emerald-500"
                         checked={!!doneArr[0]}
                         onChange={(e) =>
                           toggleChallenge(
-                            team.id,
-                            teamState.current,
+                            t.id,
+                            ts.current,
                             0,
                             e.target.checked
                           )
@@ -635,17 +562,16 @@ export default function AdminPanel() {
                     )}
                   </td>
 
-                  {/* TC2 */}
                   <td className="p-3 text-center">
-                    {checkpoint.challenges >= 2 ? (
+                    {cp.challenges >= 2 ? (
                       <input
                         type="checkbox"
                         className="w-6 h-6 accent-emerald-500"
                         checked={!!doneArr[1]}
                         onChange={(e) =>
                           toggleChallenge(
-                            team.id,
-                            teamState.current,
+                            t.id,
+                            ts.current,
                             1,
                             e.target.checked
                           )
@@ -658,7 +584,6 @@ export default function AdminPanel() {
                     )}
                   </td>
 
-                  {/* COMPLETE */}
                   <td className="p-3 text-center">
                     <input
                       type="checkbox"
@@ -666,8 +591,8 @@ export default function AdminPanel() {
                       checked={isComplete}
                       onChange={(e) =>
                         toggleComplete(
-                          team.id,
-                          teamState.current,
+                          t.id,
+                          ts.current,
                           e.target.checked
                         )
                       }
@@ -680,100 +605,171 @@ export default function AdminPanel() {
         </table>
       </div>
 
-      {/* ==================================================
-          HƯỚNG DẪN
-          ================================================== */}
       <p className="text-xs text-slate-500 mt-4 leading-relaxed">
         Chọn <b>Địa điểm</b> đội đang đứng → tick{' '}
         <b>Thử thách 1 / 2</b> nếu đã hoàn thành thử
         thách tại đó → tick <b>Hoàn thành</b> để đánh
-        dấu đội đã xong địa điểm này.
-        Có thể tick 1, 2 hoặc cả các cột tùy trạng
-        thái thực tế.
+        dấu đội đã xong địa điểm. Có thể tick 1, 2 hoặc
+        cả các cột tuỳ trạng thái thực tế.
         <br />
         Nhớ bấm <b>Lưu</b> để cập nhật lên màn hình
-        chính — mọi thay đổi chưa lưu sẽ không hiển
-        thị public.
-        <br />
-        Khi chương trình kết thúc, bấm{' '}
-        <b>📊 Tổng hợp điểm</b> để tính điểm về đích
-        (100/80/60/40) và áp dụng phạt −10 cho đội
-        không hoàn thành thử thách nào trong suốt
-        hành trình.
+        chính — mọi thay đổi chưa lưu sẽ không hiển thị
+        public.
       </p>
 
-      {/* ==================================================
-          KẾT QUẢ CHUNG CUỘC
-          ================================================== */}
+      {/* ========================= */}
+      {/* TỔNG HỢP ĐIỂM */}
+      {/* ========================= */}
+
       {showResults && results && (
         <div
           className="fixed inset-0 bg-black/65 flex items-end md:items-center justify-center p-4 z-50"
           onClick={() => setShowResults(false)}
         >
           <div
-            className="glass rounded-3xl p-6 w-full max-w-md max-h-[85vh] overflow-y-auto"
+            className="glass rounded-3xl p-5 md:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-xs tracking-[.3em] text-amber-300">
               TỔNG HỢP ĐIỂM
             </div>
 
-            <h2 className="text-xl font-black mb-4">
+            <h2 className="text-xl md:text-2xl font-black mb-5">
               KẾT QUẢ CHUNG CUỘC
             </h2>
 
             <div className="space-y-3">
-              {results.map((result, index) => (
-                <div
-                  key={result.teamId}
-                  className="rounded-xl bg-black/20 p-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-slate-500 font-bold w-4 shrink-0">
-                        {index + 1}
+              {results.map((r, i) => {
+                const deduction =
+                  r.penalty < 0
+                    ? Math.abs(r.penalty)
+                    : r.penalty;
+
+                const remainingScore =
+                  r.finalScore;
+
+                return (
+                  <div
+                    key={r.teamId}
+                    className="rounded-2xl bg-black/20 p-4"
+                  >
+                    {/* Tên đội + thứ hạng */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-slate-500 font-bold w-5 shrink-0">
+                        {i + 1}
                       </span>
 
-                      <span className="shrink-0">
-                        {result.icon}
+                      <span className="text-xl">
+                        {r.icon}
                       </span>
 
                       <span
-                        className="font-semibold truncate"
-                        style={{ color: result.color }}
+                        className="font-bold text-base md:text-lg truncate"
+                        style={{ color: r.color }}
                       >
-                        {result.name}
+                        {r.name}
                       </span>
                     </div>
 
-                    <span className="text-lg font-black shrink-0">
-                      {result.finalScore}đ
-                    </span>
+                    {/* 3 CỘT ĐIỂM */}
+                    <div className="grid grid-cols-3 gap-2 md:gap-3">
+                      {/* TỔNG ĐIỂM */}
+                      <div className="rounded-xl bg-white/5 p-3 text-center">
+                        <div className="text-[10px] md:text-xs uppercase tracking-wider text-slate-500 mb-1">
+                          Tổng điểm
+                        </div>
+
+                        <div className="text-xl md:text-2xl font-black text-white">
+                          {r.basePoints}đ
+                        </div>
+                      </div>
+
+                      {/* ĐIỂM TRỪ */}
+                      <div className="rounded-xl bg-red-500/10 border border-red-400/10 p-3 text-center">
+                        <div className="text-[10px] md:text-xs uppercase tracking-wider text-slate-500 mb-1">
+                          Điểm trừ
+                        </div>
+
+                        <div
+                          className={`text-xl md:text-2xl font-black ${
+                            deduction > 0
+                              ? 'text-red-400'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          {deduction > 0
+                            ? `-${deduction}đ`
+                            : '0đ'}
+                        </div>
+                      </div>
+
+                      {/* SỐ ĐIỂM CÒN LẠI */}
+                      <div className="rounded-xl bg-emerald-500/10 border border-emerald-400/10 p-3 text-center">
+                        <div className="text-[10px] md:text-xs uppercase tracking-wider text-slate-500 mb-1">
+                          Số điểm còn lại
+                        </div>
+
+                        <div className="text-xl md:text-2xl font-black text-emerald-300">
+                          {remainingScore}đ
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* THÔNG TIN BỔ SUNG */}
+                    <div className="text-xs text-slate-400 mt-3 pl-1">
+                      {r.finished
+                        ? `Về đích hạng ${r.finishRank}`
+                        : 'Chưa về đích'}
+
+                      {' · '}
+
+                      {r.totalChallengesDone}{' '}
+                      thử thách đã hoàn thành
+
+                      {r.totalChallengesDone === 0 && (
+                        <span className="text-red-400">
+                          {' · Không hoàn thành thử thách → trừ 10 điểm'}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                );
+              })}
+            </div>
 
-                  <div className="text-xs text-slate-400 mt-1 pl-6">
-                    {result.finished
-                      ? `Về đích hạng ${result.finishRank} (+${result.basePoints}đ)`
-                      : 'Chưa về đích (+0đ)'}
+            {/* GHI CHÚ LUẬT ĐIỂM */}
+            <div className="mt-5 rounded-xl border border-white/10 bg-black/20 p-3 text-xs text-slate-400 leading-relaxed">
+              <div className="font-semibold text-slate-300 mb-1">
+                Quy tắc tính điểm
+              </div>
 
-                    {result.penalty !== 0 && (
-                      <span className="text-red-400">
-                        {' '}
-                        · Phạt {result.penalty}đ (0 thử
-                        thách hoàn thành)
-                      </span>
-                    )}
+              <div>
+                • Hạng 1: <b>100 điểm</b>
+              </div>
 
-                    {' · '}
-                    {result.totalChallengesDone}{' '}
-                    thử thách đã hoàn thành
-                  </div>
-                </div>
-              ))}
+              <div>
+                • Hạng 2: <b>80 điểm</b>
+              </div>
+
+              <div>
+                • Hạng 3: <b>60 điểm</b>
+              </div>
+
+              <div>
+                • Hạng 4: <b>40 điểm</b>
+              </div>
+
+              <div>
+                • Nếu tổng số thử thách hoàn thành
+                trong hành trình = <b>0</b> →{' '}
+                <b className="text-red-400">
+                  trừ 10 điểm
+                </b>
+              </div>
             </div>
 
             <button
-              className="mt-6 w-full rounded-xl py-3 bg-white/10"
+              className="mt-5 w-full rounded-xl py-3 bg-white/10 hover:bg-white/15 transition"
               onClick={() => setShowResults(false)}
             >
               Đóng
