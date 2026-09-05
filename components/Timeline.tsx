@@ -16,7 +16,7 @@ export default function Timeline({state,onTeam}:{state:AppState;onTeam:(id:TeamI
           });
           return (
             <div key={c.id} className="relative flex gap-3 items-start">
-              <div className={`relative z-10 shrink-0 w-10 h-10 rounded-full glass flex items-center justify-center text-base border ${i===0?'pulse':''}`}>
+              <div className={`relative z-10 shrink-0 w-10 h-10 rounded-full glass flex items-center justify-center text-base border ${here.length>0?'pulse':''}`}>
                 {c.symbol}
               </div>
               <div className="flex-1 pt-1.5 min-w-0">
