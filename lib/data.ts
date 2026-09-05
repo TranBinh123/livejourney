@@ -9,13 +9,15 @@ export const TEAMS:Team[]=[
 
 export const CHECKPOINTS:Checkpoint[]=[
 {id:0,name:'CỔNG THỜI GIAN',symbol:'⌁',challenges:0},
-{id:1,name:'DẤU ẤN',symbol:'✦',challenges:2},
-{id:2,name:'MẬT MÃ',symbol:'◇',challenges:1},
-{id:3,name:'LỐI RẼ',symbol:'⟡',challenges:2},
-{id:4,name:'NGỌN GIÓ',symbol:'◈',challenges:1},
-{id:5,name:'BÍ ẨN',symbol:'✧',challenges:2},
-{id:6,name:'CỔNG ÁNH SÁNG',symbol:'◉',challenges:1},
-{id:7,name:'ĐÍCH ĐẾN',symbol:'🏆',challenges:2}
+{id:1,name:'CHECK POINT 2',symbol:'2',challenges:2},
+{id:2,name:'CHECK POINT 3',symbol:'3',challenges:2},
+{id:3,name:'CHECK POINT 4',symbol:'4',challenges:2},
+{id:4,name:'CHECK POINT 5',symbol:'5',challenges:2},
+{id:5,name:'CHECK POINT 6',symbol:'6',challenges:2},
+{id:6,name:'CHECK POINT 7',symbol:'7',challenges:2},
+{id:7,name:'CHECK POINT 8',symbol:'8',challenges:2},
+{id:8,name:'CHECK POINT 9',symbol:'9',challenges:2},
+{id:9,name:'ĐÍCH ĐẾN',symbol:'🏆',challenges:2}
 ];
 
 const emptyTeamState=():TeamState=>({current:0,challengesDone:{},completedAt:{}});
