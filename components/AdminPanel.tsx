@@ -1,3 +1,171 @@
 'use client';
-import {useState} from 'react';import {CHECKPOINTS,TEAMS} from '@/lib/data';import {completeChallenge,completeCheckpoint,reset,useLiveState} from '@/lib/store';import {TeamId} from '@/lib/types';
-export default function AdminPanel(){const state=useLiveState();const [cp,setCp]=useState(0);const [team,setTeam]=useState<TeamId>('ops');const s=state.teams[team];const current=CHECKPOINTS[s.current];const challengeCount=current.challenges;const done=s.completedChallenges[s.current]||0;const teamName=TEAMS.find(t=>t.id===team)!.name;return <main className="min-h-screen p-4 md:p-8"><header className="flex justify-between items-center mb-6"><div><div className="text-xs tracking-[.3em] text-amber-300">THE BANACODE / ADMIN</div><h1 className="text-3xl font-black">LIVE CONTROL</h1></div><button onClick={()=>{if(confirm('Reset toàn bộ dữ liệu demo?'))reset()}} className="text-xs text-red-300 border border-red-400/30 rounded-lg px-3 py-2">Reset demo</button></header><div className="grid lg:grid-cols-[280px_1fr] gap-5"><aside className="glass rounded-2xl p-4"><div className="text-xs uppercase tracking-widest text-slate-500 mb-3">Chọn đội</div>{TEAMS.map(t=><button key={t.id} onClick={()=>setTeam(t.id)} className={`w-full p-3 rounded-xl flex gap-3 items-center mb-2 text-left ${team===t.id?'bg-white/10':''}`}><span>{t.icon}</span><span className="font-semibold" style={{color:t.color}}>{t.name}</span></button>)}</aside><section className="glass rounded-2xl p-5"><div className="flex flex-wrap gap-2 mb-5"><span className="text-sm text-slate-400">Đội:</span><b style={{color:TEAMS.find(t=>t.id===team)!.color}}>{teamName}</b><span className="text-slate-600">•</span><span className="text-sm text-slate-400">Checkpoint hiện tại:</span><b>{current.name}</b></div><div className="grid md:grid-cols-3 gap-4"><div className="rounded-2xl bg-black/20 p-5"><div className="text-xs uppercase tracking-widest text-slate-500">Đội chơi</div><div className="text-4xl mt-3">✓</div><p className="text-xs text-slate-400 mt-2">Marker hiện tại đã được hệ thống xác nhận.</p></div><div className="rounded-2xl bg-black/20 p-5"><div className="text-xs uppercase tracking-widest text-slate-500">Thử thách</div>{challengeCount===0?<p className="mt-4 text-slate-400">Checkpoint này không có thử thách.</p>:Array.from({length:challengeCount}).map((_,i)=><label key={i} className="flex items-center justify-between py-3 border-b border-white/5"><span>Thử thách {i+1}</span><input className="w-7 h-7 accent-emerald-500" type="checkbox" checked={done>i} onChange={e=>completeChallenge(team,s.current,e.target.checked?i+1:i)}/></label>)}</div><div className="rounded-2xl bg-black/20 p-5 flex flex-col"><div className="text-xs uppercase tracking-widest text-slate-500">Rời địa điểm</div><p className="text-xs text-slate-400 mt-3">Không yêu cầu hoàn thành thử thách trước.</p><button disabled={!!s.finishedAt} onClick={()=>completeCheckpoint(team)} className="mt-auto rounded-xl py-4 font-black text-lg bg-amber-300 text-slate-950 disabled:opacity-40">✓ HOÀN THÀNH ĐỊA ĐIỂM</button></div></div><div className="mt-6"><div className="text-xs uppercase tracking-widest text-slate-500 mb-3">Trạng thái toàn bộ đội</div><div className="grid md:grid-cols-4 gap-2">{TEAMS.map(t=>{const ts=state.teams[t.id];return <div key={t.id} className="p-3 rounded-xl bg-black/20"><div className="font-bold" style={{color:t.color}}>{t.icon} {t.name}</div><div className="text-xs text-slate-400 mt-1">{CHECKPOINTS[ts.current].name}</div>{ts.finishedAt&&<div className="text-xs text-amber-300 mt-1">FINISH • {new Date(ts.finishedAt).toLocaleTimeString('vi-VN')}</div>}</div>})}</div></div></section></div></main>}
+import {useEffect,useState} from 'react';
+import Link from 'next/link';
+import {CHECKPOINTS,TEAMS} from '@/lib/data';
+import {load,saveAll,reset} from '@/lib/store';
+import {AppState,TeamId} from '@/lib/types';
+
+export default function AdminPanel(){
+  const [draft,setDraft]=useState<AppState|null>(null);
+  const [savedAt,setSavedAt]=useState<string|null>(null);
+
+  useEffect(()=>{ setDraft(load()); },[]);
+
+  if(!draft){
+    return <main className="min-h-screen flex items-center justify-center text-slate-400">Đang tải...</main>;
+  }
+
+  const setLocation=(team:TeamId,cp:number)=>{
+    setDraft(d=>{
+      if(!d) return d;
+      const next:AppState=JSON.parse(JSON.stringify(d));
+      next.teams[team].current=cp;
+      return next;
+    });
+    setSavedAt(null);
+  };
+
+  const toggleChallenge=(team:TeamId,cp:number,slot:number,value:boolean)=>{
+    setDraft(d=>{
+      if(!d) return d;
+      const next:AppState=JSON.parse(JSON.stringify(d));
+      const t=next.teams[team];
+      const arr=t.challengesDone[cp]?[...t.challengesDone[cp]]:[false,false];
+      arr[slot]=value;
+      t.challengesDone[cp]=arr;
+      return next;
+    });
+    setSavedAt(null);
+  };
+
+  const toggleComplete=(team:TeamId,cp:number,value:boolean)=>{
+    setDraft(d=>{
+      if(!d) return d;
+      const next:AppState=JSON.parse(JSON.stringify(d));
+      const t=next.teams[team];
+      if(value){
+        const now=new Date().toISOString();
+        t.completedAt[cp]=now;
+        if(cp===CHECKPOINTS.length-1) t.finishedAt=now;
+      } else {
+        delete t.completedAt[cp];
+        if(cp===CHECKPOINTS.length-1) delete t.finishedAt;
+      }
+      return next;
+    });
+    setSavedAt(null);
+  };
+
+  const handleSave=()=>{
+    saveAll(draft);
+    setSavedAt(new Date().toLocaleTimeString('vi-VN'));
+  };
+
+  const handleReset=()=>{
+    if(confirm('Reset toàn bộ dữ liệu demo?')){
+      setDraft(reset());
+      setSavedAt(null);
+    }
+  };
+
+  return (
+    <main className="min-h-screen p-3 md:p-8">
+      <header className="flex flex-wrap gap-3 justify-between items-center mb-5">
+        <div>
+          <div className="text-xs tracking-[.3em] text-amber-300">THE BANACODE / ADMIN</div>
+          <h1 className="text-2xl md:text-3xl font-black">LIVE CONTROL</h1>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={handleReset} className="text-xs text-red-300 border border-red-400/30 rounded-lg px-3 py-2">
+            Reset demo
+          </button>
+          <button onClick={handleSave} className="text-sm font-bold bg-emerald-400 text-slate-950 rounded-lg px-4 py-2">
+            💾 Lưu
+          </button>
+          <Link href="/" className="text-sm bg-white/10 rounded-lg px-4 py-2 flex items-center">
+            Thoát
+          </Link>
+        </div>
+      </header>
+
+      {savedAt && <div className="mb-4 text-xs text-emerald-400">Đã lưu lúc {savedAt}</div>}
+
+      <div className="glass rounded-2xl p-2 md:p-4 overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm border-collapse">
+          <thead>
+            <tr className="text-left text-xs uppercase tracking-widest text-slate-500">
+              <th className="p-3">Đội chơi</th>
+              <th className="p-3">Địa điểm</th>
+              <th className="p-3 text-center">Thử thách 1</th>
+              <th className="p-3 text-center">Thử thách 2</th>
+              <th className="p-3 text-center">Hoàn thành</th>
+            </tr>
+          </thead>
+          <tbody>
+            {TEAMS.map(t=>{
+              const ts=draft.teams[t.id];
+              const cp=CHECKPOINTS[ts.current];
+              const doneArr=ts.challengesDone[ts.current]||[false,false];
+              const isComplete=!!ts.completedAt[ts.current];
+              return (
+                <tr key={t.id} className="border-t border-white/10">
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      <span>{t.icon}</span>
+                      <span className="font-semibold" style={{color:t.color}}>{t.name}</span>
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <select
+                      value={ts.current}
+                      onChange={e=>setLocation(t.id,Number(e.target.value))}
+                      className="bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-sm max-w-[180px]"
+                    >
+                      {CHECKPOINTS.map(c=>(
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="p-3 text-center">
+                    {cp.challenges>=1 ? (
+                      <input
+                        type="checkbox"
+                        className="w-6 h-6 accent-emerald-500"
+                        checked={!!doneArr[0]}
+                        onChange={e=>toggleChallenge(t.id,ts.current,0,e.target.checked)}
+                      />
+                    ) : <span className="text-slate-600">—</span>}
+                  </td>
+                  <td className="p-3 text-center">
+                    {cp.challenges>=2 ? (
+                      <input
+                        type="checkbox"
+                        className="w-6 h-6 accent-emerald-500"
+                        checked={!!doneArr[1]}
+                        onChange={e=>toggleChallenge(t.id,ts.current,1,e.target.checked)}
+                      />
+                    ) : <span className="text-slate-600">—</span>}
+                  </td>
+                  <td className="p-3 text-center">
+                    <input
+                      type="checkbox"
+                      className="w-6 h-6 accent-amber-400"
+                      checked={isComplete}
+                      onChange={e=>toggleComplete(t.id,ts.current,e.target.checked)}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-xs text-slate-500 mt-4 leading-relaxed">
+        Chọn <b>Địa điểm</b> đội đang đứng → tick <b>Thử thách 1 / 2</b> nếu đã hoàn thành thử thách tại đó
+        → tick <b>Hoàn thành</b> để đánh dấu đội đã xong địa điểm này. Có thể tick 1, 2 hoặc cả các cột tuỳ trạng thái thực tế.
+        Nhớ bấm <b>Lưu</b> để cập nhật lên màn hình chính — mọi thay đổi chưa lưu sẽ không hiển thị public.
+      </p>
+    </main>
+  );
+}
