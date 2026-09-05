@@ -1,9 +1,12 @@
-import {AppState,Checkpoint,Team,TeamId} from './types';
+import {AppState,Checkpoint,Team,TeamId,TeamState} from './types';
+
+// Danh sách đội chơi và checkpoint giữ nguyên như dữ liệu gốc của dự án — không tự ý đổi/thêm tên mới.
 export const TEAMS:Team[]=[
 {id:'ops',name:'Ban Vận hành',color:'#35c759',icon:'⚙'},
 {id:'food',name:'Ban Ẩm thực',color:'#ffd60a',icon:'👨‍🍳'},
 {id:'tech',name:'Ban Kỹ thuật',color:'#0a84ff',icon:'🔧'},
 {id:'mgmt',name:'Ban do Giám đốc quản lý',color:'#ff453a',icon:'🤝'}];
+
 export const CHECKPOINTS:Checkpoint[]=[
 {id:0,name:'CỔNG THỜI GIAN',symbol:'⌁',challenges:0},
 {id:1,name:'DẤU ẤN',symbol:'✦',challenges:2},
@@ -14,5 +17,17 @@ export const CHECKPOINTS:Checkpoint[]=[
 {id:6,name:'CỔNG ÁNH SÁNG',symbol:'◉',challenges:1},
 {id:7,name:'ĐÍCH ĐẾN',symbol:'🏆',challenges:2}
 ];
-export const INITIAL:AppState={version:1,teams:{ops:{current:0,completedChallenges:{},completedAt:{}},food:{current:0,completedChallenges:{},completedAt:{}},tech:{current:0,completedChallenges:{},completedAt:{}},mgmt:{current:0,completedChallenges:{},completedAt:{}}}};
+
+const emptyTeamState=():TeamState=>({current:0,challengesDone:{},completedAt:{}});
+
+export const INITIAL:AppState={
+  version:2,
+  teams:{
+    ops:emptyTeamState(),
+    food:emptyTeamState(),
+    tech:emptyTeamState(),
+    mgmt:emptyTeamState()
+  }
+};
+
 export const teamById=(id:TeamId)=>TEAMS.find(t=>t.id===id)!;
