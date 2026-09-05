@@ -12,25 +12,36 @@ const clone = <T,>(x: T): T =>
 
 /**
  * Đọc state từ Supabase.
- * Nếu Supabase chưa có dữ liệu thì tạo state ban đầu.
- * Nếu Supabase không khả dụng thì dùng localStorage làm fallback.
+ *
+ * Nếu Supabase chưa được cấu hình:
+ * → sử dụng localStorage làm fallback.
+ *
+ * Nếu Supabase đã được cấu hình:
+ * → đọc dữ liệu từ bảng app_state, id = live.
  */
 export async function load(): Promise<AppState> {
-  // Nếu chưa có Supabase thì dùng localStorage
+  // --------------------------------------------------
+  // FALLBACK: LOCALSTORAGE
+  // --------------------------------------------------
   if (!supabase) {
     if (typeof window === 'undefined') {
       return clone(INITIAL);
     }
 
     try {
-      return JSON.parse(
-        localStorage.getItem(KEY) || 'null'
-      ) || clone(INITIAL);
+      return (
+        JSON.parse(
+          localStorage.getItem(KEY) || 'null'
+        ) || clone(INITIAL)
+      );
     } catch {
       return clone(INITIAL);
     }
   }
 
+  // --------------------------------------------------
+  // SUPABASE
+  // --------------------------------------------------
   try {
     const { data, error } = await supabase
       .from('app_state')
@@ -42,7 +53,9 @@ export async function load(): Promise<AppState> {
       throw error;
     }
 
-    // Chưa có dữ liệu → tạo state ban đầu
+    // ------------------------------------------------
+    // CHƯA CÓ DỮ LIỆU → TẠO STATE BAN ĐẦU
+    // ------------------------------------------------
     if (!data) {
       const initial = clone(INITIAL);
 
@@ -50,7 +63,7 @@ export async function load(): Promise<AppState> {
         .from('app_state')
         .insert({
           id: 'live',
-          data: initial
+          data: initial,
         });
 
       if (insertError) {
@@ -58,28 +71,44 @@ export async function load(): Promise<AppState> {
       }
 
       if (typeof window !== 'undefined') {
-        localStorage.setItem(KEY, JSON.stringify(initial));
+        localStorage.setItem(
+          KEY,
+          JSON.stringify(initial)
+        );
       }
 
       return initial;
     }
 
+    // ------------------------------------------------
+    // ĐÃ CÓ DỮ LIỆU
+    // ------------------------------------------------
     const state = data.data as AppState;
 
     if (typeof window !== 'undefined') {
-      localStorage.setItem(KEY, JSON.stringify(state));
+      localStorage.setItem(
+        KEY,
+        JSON.stringify(state)
+      );
     }
 
     return state;
   } catch (error) {
-    console.error('Supabase load error:', error);
+    console.error(
+      'Supabase load error:',
+      error
+    );
 
-    // Fallback về localStorage nếu Supabase gặp vấn đề
+    // ------------------------------------------------
+    // FALLBACK VỀ LOCALSTORAGE
+    // ------------------------------------------------
     if (typeof window !== 'undefined') {
       try {
-        return JSON.parse(
-          localStorage.getItem(KEY) || 'null'
-        ) || clone(INITIAL);
+        return (
+          JSON.parse(
+            localStorage.getItem(KEY) || 'null'
+          ) || clone(INITIAL)
+        );
       } catch {
         return clone(INITIAL);
       }
@@ -90,34 +119,53 @@ export async function load(): Promise<AppState> {
 }
 
 /**
- * Lưu toàn bộ state lên Supabase.
+ * Lưu toàn bộ state.
+ *
+ * 1. Lưu localStorage trước.
+ * 2. Nếu có Supabase → lưu lên Supabase.
  */
-export async function saveAll(next: AppState): Promise<AppState> {
-  // Luôn lưu local trước để có fallback
+export async function saveAll(
+  next: AppState
+): Promise<AppState> {
+  // --------------------------------------------------
+  // LOCAL STORAGE
+  // --------------------------------------------------
   if (typeof window !== 'undefined') {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    localStorage.setItem(
+      KEY,
+      JSON.stringify(next)
+    );
   }
 
-  // Nếu chưa cấu hình Supabase thì chỉ lưu local
+  // --------------------------------------------------
+  // NẾU KHÔNG CÓ SUPABASE
+  // --------------------------------------------------
   if (!supabase) {
     return next;
   }
 
+  // --------------------------------------------------
+  // LƯU SUPABASE
+  // --------------------------------------------------
   const { error } = await supabase
     .from('app_state')
     .upsert(
       {
         id: 'live',
         data: next,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       },
       {
-        onConflict: 'id'
+        onConflict: 'id',
       }
     );
 
   if (error) {
-    console.error('Supabase save error:', error);
+    console.error(
+      'Supabase save error:',
+      error
+    );
+
     throw error;
   }
 
@@ -125,16 +173,31 @@ export async function saveAll(next: AppState): Promise<AppState> {
 }
 
 /**
- * Reset toàn bộ dữ liệu về trạng thái ban đầu.
+ * Reset toàn bộ dữ liệu
+ * về trạng thái ban đầu.
  */
 export async function reset(): Promise<AppState> {
   const initial = clone(INITIAL);
+
   await saveAll(initial);
+
   return initial;
 }
 
 /**
  * Theo dõi state realtime từ Supabase.
+ *
+ * Khi Admin lưu dữ liệu:
+ *
+ * Admin
+ *   ↓
+ * saveAll()
+ *   ↓
+ * Supabase app_state
+ *   ↓
+ * Realtime
+ *   ↓
+ * Public Screen
  */
 export function useLiveState() {
   const [state, setState] = useState<AppState>(
@@ -144,22 +207,46 @@ export function useLiveState() {
   useEffect(() => {
     let mounted = true;
 
-    // Tải dữ liệu hiện tại
-    load().then((loaded) => {
-      if (mounted) {
-        setState(loaded);
-      }
-    });
+    // ------------------------------------------------
+    // TẢI STATE BAN ĐẦU
+    // ------------------------------------------------
+    load()
+      .then((loaded) => {
+        if (mounted) {
+          setState(loaded);
+        }
+      })
+      .catch((error) => {
+        console.error(
+          'Initial state load error:',
+          error
+        );
+      });
 
-    // Nếu chưa có Supabase thì không đăng ký realtime
+    // ------------------------------------------------
+    // NẾU CHƯA CÓ SUPABASE
+    // → CHỈ DÙNG LOCAL
+    // ------------------------------------------------
     if (!supabase) {
       return () => {
         mounted = false;
       };
     }
 
-    // Kết nối Supabase Realtime
-    const channel = supabase
+    // ------------------------------------------------
+    // QUAN TRỌNG:
+    // Sau khi kiểm tra !supabase,
+    // tạo một biến client riêng.
+    //
+    // TypeScript sẽ hiểu:
+    // client KHÔNG phải null.
+    // ------------------------------------------------
+    const client = supabase;
+
+    // ------------------------------------------------
+    // TẠO REALTIME CHANNEL
+    // ------------------------------------------------
+    const channel = client
       .channel('banacode-live-state')
       .on(
         'postgres_changes',
@@ -167,19 +254,34 @@ export function useLiveState() {
           event: '*',
           schema: 'public',
           table: 'app_state',
-          filter: 'id=eq.live'
+          filter: 'id=eq.live',
         },
         (payload) => {
-          if (!mounted) return;
+          if (!mounted) {
+            return;
+          }
 
-          if (payload.new && 'data' in payload.new) {
+          // ------------------------------------------
+          // NHẬN STATE MỚI TỪ SUPABASE
+          // ------------------------------------------
+          if (
+            payload.new &&
+            'data' in payload.new
+          ) {
             const nextState = (
-              payload.new as { data: AppState }
+              payload.new as {
+                data: AppState;
+              }
             ).data;
 
             setState(nextState);
 
-            if (typeof window !== 'undefined') {
+            // ----------------------------------------
+            // CẬP NHẬT LOCAL CACHE
+            // ----------------------------------------
+            if (
+              typeof window !== 'undefined'
+            ) {
               localStorage.setItem(
                 KEY,
                 JSON.stringify(nextState)
@@ -190,9 +292,13 @@ export function useLiveState() {
       )
       .subscribe();
 
+    // ------------------------------------------------
+    // CLEANUP
+    // ------------------------------------------------
     return () => {
       mounted = false;
-      supabase.removeChannel(channel);
+
+      client.removeChannel(channel);
     };
   }, []);
 
