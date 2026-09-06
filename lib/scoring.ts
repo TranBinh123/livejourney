@@ -13,7 +13,7 @@ export type TeamScoreResult = {
   // Điểm theo thứ hạng về đích
   basePoints: number;
 
-  // Số thử thách phải hoàn thành
+  // Tổng số thử thách phải hoàn thành
   totalChallenges: number;
 
   // Số thử thách đã hoàn thành
@@ -33,11 +33,9 @@ export function computeFinalScores(
   state: AppState
 ): TeamScoreResult[] {
 
-  /*
-   * ============================================================
-   * 1. XÁC ĐỊNH THỨ HẠNG VỀ ĐÍCH
-   * ============================================================
-   */
+  // ============================================================
+  // 1. XÁC ĐỊNH THỨ HẠNG VỀ ĐÍCH
+  // ============================================================
 
   const finished = TEAMS
     .map(team => ({
@@ -46,8 +44,13 @@ export function computeFinalScores(
     }))
     .filter(item => !!item.state.finishedAt)
     .sort((a, b) => {
-      const timeA = new Date(a.state.finishedAt!).getTime();
-      const timeB = new Date(b.state.finishedAt!).getTime();
+      const timeA = new Date(
+        a.state.finishedAt!
+      ).getTime();
+
+      const timeB = new Date(
+        b.state.finishedAt!
+      ).getTime();
 
       return timeA - timeB;
     });
@@ -55,19 +58,15 @@ export function computeFinalScores(
   const rankByTeam = new Map<TeamId, number>();
 
   finished.forEach((item, index) => {
-    rankByTeam.set(item.team.id, index + 1);
+    rankByTeam.set(
+      item.team.id,
+      index + 1
+    );
   });
 
-  /*
-   * ============================================================
-   * 2. ĐIỂM THEO THỨ HẠNG
-   * ============================================================
-   *
-   * Hạng 1 = 100
-   * Hạng 2 = 80
-   * Hạng 3 = 60
-   * Hạng 4 = 40
-   */
+  // ============================================================
+  // 2. ĐIỂM THEO THỨ HẠNG
+  // ============================================================
 
   const pointsByRank: Record<number, number> = {
     1: 100,
@@ -76,155 +75,143 @@ export function computeFinalScores(
     4: 40,
   };
 
-  /*
-   * ============================================================
-   * 3. TÍNH ĐIỂM CHO TỪNG ĐỘI
-   * ============================================================
-   */
+  // ============================================================
+  // 3. TỔNG SỐ THỬ THÁCH
+  // ============================================================
 
-  const results: TeamScoreResult[] = TEAMS.map(team => {
+  const totalChallenges = CHECKPOINTS.reduce(
+    (total, checkpoint) => {
+      return total + checkpoint.challenges;
+    },
+    0
+  );
 
-    const teamState = state.teams[team.id];
+  // ============================================================
+  // 4. TÍNH ĐIỂM TỪNG ĐỘI
+  // ============================================================
 
-    /*
-     * Tổng số thử thách phải thực hiện.
-     *
-     * Lấy theo cấu hình CHECKPOINTS.
-     * Cổng thời gian có 0 thử thách.
-     * Các checkpoint có 2 thử thách sẽ tính đủ 2.
-     */
-    const totalChallenges = CHECKPOINTS.reduce(
-      (total, checkpoint) => {
-        return total + checkpoint.challenges;
-      },
-      0
-    );
+  const results: TeamScoreResult[] =
+    TEAMS.map(team => {
 
-    /*
-     * Đếm số thử thách đã hoàn thành.
-     *
-     * challengesDone có dạng:
-     *
-     * {
-     *   1: [true, false],
-     *   2: [true, true],
-     *   3: [false, false]
-     * }
-     *
-     * Mỗi true = 1 thử thách hoàn thành.
-     */
+      const teamState =
+        state.teams[team.id];
 
-    const totalChallengesDone = Object.values(
-      teamState.challengesDone || {}
-    ).reduce((total, challengeArray) => {
+      // --------------------------------------------------------
+      // Đếm chính xác số thử thách đã hoàn thành
+      // dựa trên cấu hình CHECKPOINTS
+      // --------------------------------------------------------
 
-      return (
-        total +
-        challengeArray.filter(Boolean).length
-      );
+      const totalChallengesDone =
+        CHECKPOINTS.reduce(
+          (total, checkpoint) => {
 
-    }, 0);
+            const challengeArray =
+              teamState.challengesDone?.[
+                checkpoint.id
+              ] ?? [];
 
-    /*
-     * Số thử thách chưa hoàn thành
-     */
+            const completed =
+              challengeArray
+                .slice(0, checkpoint.challenges)
+                .filter(Boolean)
+                .length;
 
-    const totalChallengesNotDone = Math.max(
-      0,
-      totalChallenges - totalChallengesDone
-    );
+            return total + completed;
+          },
+          0
+        );
 
-    /*
-     * ============================================================
-     * 4. ĐIỂM CƠ BẢN THEO THỨ HẠNG
-     * ============================================================
-     */
+      // --------------------------------------------------------
+      // Số thử thách chưa hoàn thành
+      // --------------------------------------------------------
 
-    const finishRank =
-      rankByTeam.get(team.id) ?? null;
+      const totalChallengesNotDone =
+        Math.max(
+          0,
+          totalChallenges -
+            totalChallengesDone
+        );
 
-    const basePoints =
-      finishRank !== null
-        ? pointsByRank[finishRank] ?? 0
-        : 0;
+      // --------------------------------------------------------
+      // Thứ hạng về đích
+      // --------------------------------------------------------
 
-    /*
-     * ============================================================
-     * 5. TÍNH ĐIỂM PHẠT
-     * ============================================================
-     *
-     * MỖI THỬ THÁCH KHÔNG HOÀN THÀNH = -10 ĐIỂM
-     *
-     * Ví dụ:
-     *
-     * 0 thử thách chưa hoàn thành
-     * => phạt 0
-     *
-     * 1 thử thách chưa hoàn thành
-     * => phạt -10
-     *
-     * 2 thử thách chưa hoàn thành
-     * => phạt -20
-     *
-     * 5 thử thách chưa hoàn thành
-     * => phạt -50
-     */
+      const finishRank =
+        rankByTeam.get(team.id) ?? null;
 
-    const penalty =
-      totalChallengesNotDone * -10;
+      // --------------------------------------------------------
+      // Điểm cơ bản
+      // --------------------------------------------------------
 
-    /*
-     * ============================================================
-     * 6. ĐIỂM CUỐI CÙNG
-     * ============================================================
-     */
+      const basePoints =
+        finishRank !== null
+          ? pointsByRank[finishRank] ?? 0
+          : 0;
 
-    const finalScore =
-      basePoints + penalty;
+      // --------------------------------------------------------
+      // ĐIỂM PHẠT
+      //
+      // Mỗi thử thách không hoàn thành = -10 điểm
+      // --------------------------------------------------------
 
-    return {
-      teamId: team.id,
-      name: team.name,
-      color: team.color,
-      icon: team.icon,
+      const penalty =
+        totalChallengesNotDone * -10;
 
-      finished: !!teamState.finishedAt,
-      finishRank,
+      // --------------------------------------------------------
+      // ĐIỂM CUỐI CÙNG
+      // --------------------------------------------------------
 
-      basePoints,
+      const finalScore =
+        basePoints + penalty;
 
-      totalChallenges,
-      totalChallengesDone,
-      totalChallengesNotDone,
+      return {
+        teamId: team.id,
+        name: team.name,
+        color: team.color,
+        icon: team.icon,
 
-      penalty,
+        finished:
+          !!teamState.finishedAt,
 
-      finalScore,
-    };
-  });
+        finishRank,
 
-  /*
-   * ============================================================
-   * 7. SẮP XẾP KẾT QUẢ
-   * ============================================================
-   *
-   * Đội đã về đích đứng trước.
-   * Trong nhóm đã về đích: theo thứ hạng về đích.
-   */
+        basePoints,
+
+        totalChallenges,
+
+        totalChallengesDone,
+
+        totalChallengesNotDone,
+
+        penalty,
+
+        finalScore,
+      };
+    });
+
+  // ============================================================
+  // 5. SẮP XẾP KẾT QUẢ
+  // ============================================================
 
   return results.sort((a, b) => {
 
+    // Đội đã về đích đứng trước
     if (a.finished !== b.finished) {
       return a.finished ? -1 : 1;
     }
 
+    // Các đội đã về đích:
+    // ưu tiên thứ hạng về đích
     if (
       a.finished &&
       b.finished &&
       a.finishRank !== null &&
       b.finishRank !== null
     ) {
-      return a.finishRank - b.finishRank;
+      return (
+        a.finishRank -
+        b.finishRank
+      );
     }
 
     return 0;
