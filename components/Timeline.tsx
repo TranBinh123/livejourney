@@ -12,7 +12,7 @@ type RouteStep =
   | {
       type: 'checkpoint';
       index: number;
-      side: 'left' | 'right';
+      side: 'left' | 'right' | 'center';
     }
   | {
       type: 'mist';
@@ -33,7 +33,7 @@ const ROUTE: RouteStep[] = [
     type: 'checkpoint',
     index: 0,
     side: 'center',
-  } as RouteStep,
+  } 
 
   {
     type: 'checkpoint',
