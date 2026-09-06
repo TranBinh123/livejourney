@@ -149,9 +149,9 @@ export function useLiveState(): AppState {
       .subscribe();
 
     return () => {
-      mounted = false;
-      supabase.removeChannel(channel);
-    };
+  mounted = false;
+  client.removeChannel(channel);
+};
   }, []);
 
   return state;
