@@ -10,7 +10,7 @@ import {
 
 import { useLiveState } from '@/lib/store';
 
-import { TeamId } from '@/lib/types';
+import type { TeamId, TeamScoreResult } from '@/lib/types';
 
 import Timeline from './Timeline';
 
@@ -36,24 +36,76 @@ export default function PublicScreen() {
     state.round2Rules;
 
   // ====================================================
-  // FINISH RANKING
+  // FINISH RANKING / CÔNG BỐ KẾT QUẢ
   // ====================================================
 
-  const rank = TEAMS
+  const liveRank = TEAMS
     .map((team) => ({
       team,
-      at: state.teams[
-        team.id
-      ].finishedAt,
+      at: state.teams[team.id].finishedAt,
     }))
-    .filter(
-      (item) => !!item.at
-    )
+    .filter((item) => !!item.at)
     .sort(
       (a, b) =>
         new Date(a.at!).getTime() -
         new Date(b.at!).getTime()
     );
+
+  const publishedResults: TeamScoreResult[] =
+    state.finalResults || [];
+
+  const rank = publishedResults.length
+    ? publishedResults
+        .filter((item) => item.finished)
+        .sort(
+          (a, b) =>
+            (a.finishRank ?? 999) -
+            (b.finishRank ?? 999)
+        )
+        .map((result) => ({
+          result,
+          team:
+            TEAMS.find(
+              (team) => team.id === result.teamId
+            )!,
+          at:
+            state.teams[result.teamId]
+              .finishedAt,
+        }))
+    : liveRank.map((item, index) => ({
+        result: null,
+        team: item.team,
+        at: item.at,
+        liveRank: index + 1,
+      }));
+
+  const getFinishRank = (teamId: TeamId) => {
+    const published = publishedResults.find(
+      (item) => item.teamId === teamId
+    );
+
+    if (published?.finishRank) {
+      return published.finishRank;
+    }
+
+    const index = liveRank.findIndex(
+      (item) => item.team.id === teamId
+    );
+
+    return index >= 0 ? index + 1 : null;
+  };
+
+  const formatFinishTime = (value?: string) =>
+    value
+      ? new Date(value).toLocaleTimeString(
+          'vi-VN',
+          {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          }
+        )
+      : '--:--:--';
 
   return (
     <main className="min-h-screen grid-bg overflow-x-hidden">
@@ -335,11 +387,53 @@ export default function PublicScreen() {
 
               </div>
 
-              <div className="mt-5 p-4 rounded-2xl bg-black/20 text-sm text-slate-400">
-                Hành trình của đội đang được giữ bí mật.
-                Theo dõi bảng xếp hạng và thời điểm về đích
-                tại đây nhé!
-              </div>
+              {teamState.finishedAt ? (
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl bg-black/20 p-4">
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                      Thứ hạng
+                    </div>
+                    <div className="text-2xl font-black text-amber-300 mt-1">
+                      #{getFinishRank(selectedTeam.id) ?? '—'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-black/20 p-4">
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                      Về đích lúc
+                    </div>
+                    <div className="text-lg font-black text-white mt-2">
+                      {formatFinishTime(
+                        teamState.finishedAt
+                      )}
+                    </div>
+                  </div>
+
+                  {publishedResults.length > 0 && (
+                    <div className="col-span-2 rounded-2xl border border-amber-300/20 bg-amber-300/5 p-4">
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                        Điểm chung cuộc
+                      </div>
+                      <div className="text-3xl font-black text-amber-300 mt-1">
+                        {publishedResults.find(
+                          (item) =>
+                            item.teamId ===
+                            selectedTeam.id
+                        )?.finalScore ?? 0}
+                        <span className="text-sm ml-1">
+                          điểm
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-5 p-4 rounded-2xl bg-black/20 text-sm text-slate-400">
+                  Hành trình của đội đang được giữ bí mật.
+                  Theo dõi bảng xếp hạng và thời điểm về đích
+                  tại đây nhé!
+                </div>
+              )}
 
               <button
                 className="mt-6 w-full rounded-xl py-3 bg-white/10"
@@ -363,30 +457,62 @@ export default function PublicScreen() {
 
         <div className="mx-3 md:mx-8 mb-8 glass rounded-2xl p-4 md:p-5">
 
-          <h3 className="font-black text-sm md:text-base">
-            🏆 FINISH RANKING
-          </h3>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-black text-sm md:text-base">
+                🏆 {publishedResults.length
+                  ? 'KẾT QUẢ CHUNG CUỘC'
+                  : 'THỨ HẠNG VỀ ĐÍCH'}
+              </h3>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+              <p className="text-[11px] text-slate-500 mt-1">
+                {publishedResults.length && state.tallyAt
+                  ? `Đã tổng hợp lúc ${formatFinishTime(
+                      state.tallyAt
+                    )}`
+                  : 'Cập nhật theo thời điểm các đội về đích'}
+              </p>
+            </div>
+
+            <span className="text-[10px] uppercase tracking-widest text-emerald-300">
+              LIVE
+            </span>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-2 mt-3">
 
             {rank.map((item, index) => (
-
-              <div
+              <button
                 key={item.team.id}
-                className="rounded-xl bg-black/20 p-3 flex justify-between text-sm"
+                type="button"
+                onClick={() => setSelected(item.team.id)}
+                className="rounded-xl bg-black/20 p-3 text-left hover:bg-white/5 transition"
               >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold truncate">
+                    {['🥇', '🥈', '🥉', '🏅'][index]}{' '}
+                    {item.team.name}
+                  </span>
 
-                <span>
-                  {['🥇', '🥈', '🥉', '🏅'][index]}{' '}
-                  {item.team.name}
-                </span>
+                  <span className="font-black text-amber-300 shrink-0">
+                    #{item.result?.finishRank ?? item.liveRank}
+                  </span>
+                </div>
 
-                <b>
-                  {[100, 80, 60, 40][index]}
-                </b>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>
+                    {formatFinishTime(item.at)}
+                  </span>
 
-              </div>
-
+                  {item.result ? (
+                    <b className="text-amber-300">
+                      {item.result.finalScore}đ
+                    </b>
+                  ) : (
+                    <span>Đã về đích</span>
+                  )}
+                </div>
+              </button>
             ))}
 
           </div>

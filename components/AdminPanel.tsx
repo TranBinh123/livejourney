@@ -19,10 +19,11 @@ import {
   reset,
 } from '@/lib/store';
 
-import {
+import type {
   AppState,
   TeamId,
   Round2Rules,
+  TeamScoreResult,
 } from '@/lib/types';
 
 import {
@@ -31,10 +32,7 @@ import {
   setAdminAuthed,
 } from '@/lib/auth';
 
-import {
-  computeFinalScores,
-  TeamScoreResult,
-} from '@/lib/scoring';
+import { computeFinalScores } from '@/lib/scoring';
 
 // ======================================================
 // HELPER
@@ -419,14 +417,32 @@ export default function AdminPanel() {
   // TALLY
   // ====================================================
 
-  const handleTally = () => {
+  const handleTally = async () => {
     if (!draft) return;
 
-    setResults(
-      computeFinalScores(draft)
-    );
+    const calculated = computeFinalScores(draft);
+    const next: AppState =
+      JSON.parse(JSON.stringify(draft));
 
+    // Lưu kết quả tổng hợp vào AppState để Public Screen
+    // và các thiết bị khác có thể đọc được qua Supabase Realtime.
+    next.finalResults = calculated;
+    next.tallyAt = new Date().toISOString();
+
+    setDraft(next);
+    setResults(calculated);
     setShowResults(true);
+
+    try {
+      await saveAll(next);
+      setSavedAt(
+        new Date().toLocaleTimeString('vi-VN')
+      );
+    } catch {
+      alert(
+        'Không thể công bố kết quả. Vui lòng kiểm tra kết nối Supabase.'
+      );
+    }
   };
 
   // ====================================================

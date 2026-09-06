@@ -11,6 +11,23 @@ export type Team = {
   icon: string;
 };
 
+export type TeamScoreResult = {
+  teamId: TeamId;
+  name: string;
+  color: string;
+  icon: string;
+
+  finished: boolean;
+  finishRank: number | null;
+
+  basePoints: number;
+  totalChallenges: number;
+  totalChallengesDone: number;
+  totalChallengesNotDone: number;
+  penalty: number;
+  finalScore: number;
+};
+
 export type Checkpoint = {
   id: number;
   name: string;
@@ -102,4 +119,8 @@ export type AppState = {
    * dữ liệu AppState cũ đang có trên Supabase.
    */
   round2Rules?: Round2Rules;
+
+  /** Kết quả đã được Admin tổng hợp và công bố */
+  finalResults?: TeamScoreResult[];
+  tallyAt?: string;
 };

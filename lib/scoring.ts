@@ -1,33 +1,5 @@
 import { CHECKPOINTS, TEAMS } from './data';
-import { AppState, TeamId } from './types';
-
-export type TeamScoreResult = {
-  teamId: TeamId;
-  name: string;
-  color: string;
-  icon: string;
-
-  finished: boolean;
-  finishRank: number | null;
-
-  // Điểm theo thứ hạng về đích
-  basePoints: number;
-
-  // Tổng số thử thách phải hoàn thành
-  totalChallenges: number;
-
-  // Số thử thách đã hoàn thành
-  totalChallengesDone: number;
-
-  // Số thử thách chưa hoàn thành
-  totalChallengesNotDone: number;
-
-  // Điểm bị trừ
-  penalty: number;
-
-  // Điểm cuối cùng
-  finalScore: number;
-};
+import type { AppState, TeamId, TeamScoreResult } from './types';
 
 export function computeFinalScores(
   state: AppState

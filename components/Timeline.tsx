@@ -477,22 +477,34 @@ function MistZone({
 
 function VerticalLine() {
   return (
-    <div
-      className="
-        pointer-events-none
-        absolute
-        bottom-0
-        left-1/2
-        top-0
-        z-0
-        w-px
-        -translate-x-1/2
-        bg-gradient-to-b
-        from-transparent
-        via-white/20
-        to-transparent
-      "
-    />
+    <svg
+      className="pointer-events-none absolute inset-0 z-0 h-full w-full overflow-visible"
+      viewBox="0 0 100 1000"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <path
+        d="
+          M 50 0
+          C 50 45, 42 65, 42 95
+          S 58 145, 58 190
+          S 42 240, 42 285
+          S 58 335, 58 380
+          S 42 430, 42 475
+          S 58 525, 58 570
+          S 42 620, 42 665
+          S 58 715, 58 760
+          S 42 810, 42 855
+          S 50 920, 50 1000
+        "
+        fill="none"
+        stroke="rgba(255, 55, 75, 0.9)"
+        strokeWidth="1.4"
+        strokeDasharray="1.5 8"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
   );
 }
 
