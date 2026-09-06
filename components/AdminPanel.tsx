@@ -635,6 +635,20 @@ const toggleComplete = (
                   }
                   className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm mb-4"
                 >
+                  {Object.keys(teamState.completedAt).length > 0 && (
+  <div className="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-400/20 px-3 py-2 text-xs text-emerald-300">
+    ✓ Đã hoàn thành:{' '}
+    {
+      CHECKPOINTS[
+        Math.max(
+          ...Object.keys(
+            teamState.completedAt
+          ).map(Number)
+        )
+      ]?.name
+    }
+  </div>
+)}
                   {CHECKPOINTS.map((item) => (
                     <option
                       key={item.id}
