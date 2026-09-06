@@ -1,8 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Settings } from 'lucide-react';
+import {
+  Settings,
+  ClipboardList,
+  X,
+} from 'lucide-react';
 
 import {
   TEAMS,
@@ -20,6 +24,9 @@ export default function PublicScreen() {
   const [selected, setSelected] =
     useState<TeamId | null>(null);
 
+  const [showRules, setShowRules] =
+    useState(false);
+
   const selectedTeam =
     selected
       ? TEAMS.find(
@@ -34,6 +41,29 @@ export default function PublicScreen() {
 
   const rules =
     state.round2Rules;
+
+  // Đóng popup thể lệ bằng phím Escape
+  useEffect(() => {
+    if (!showRules) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowRules(false);
+      }
+    };
+
+    window.addEventListener(
+      'keydown',
+      handleKeyDown
+    );
+
+    return () => {
+      window.removeEventListener(
+        'keydown',
+        handleKeyDown
+      );
+    };
+  }, [showRules]);
 
   // ====================================================
   // FINISH RANKING / CÔNG BỐ KẾT QUẢ
@@ -121,7 +151,7 @@ export default function PublicScreen() {
           HEADER
       ================================================== */}
 
-      <header className="px-4 md:px-10 py-4 md:py-5 flex items-center justify-between gap-2">
+      <header className="px-4 md:px-10 py-4 md:py-5 flex items-center justify-between gap-3">
 
         <div className="min-w-0">
 
@@ -138,89 +168,179 @@ export default function PublicScreen() {
 
         </div>
 
-        <Link
-          href="/admin"
-          aria-label="Admin"
-          title="Quản trị"
-          className="glass rounded-xl w-10 h-10 flex items-center justify-center text-slate-400 hover:text-amber-300 shrink-0"
-        >
-          <Settings size={18} />
-        </Link>
+        {/* ==================================================
+            HEADER ACTIONS
+        ================================================== */}
+
+        <div className="flex items-center gap-2 shrink-0">
+
+          {/* NÚT THỂ LỆ VÒNG 2 */}
+
+          {rules && (
+            <button
+              type="button"
+              aria-label="Xem thể lệ vòng 2"
+              title="Thể lệ vòng 2"
+              onClick={() =>
+                setShowRules(true)
+              }
+              className="glass rounded-xl h-10 px-3 flex items-center justify-center gap-2 text-slate-300 hover:text-amber-300 hover:border-amber-300/30 transition"
+            >
+              <ClipboardList size={17} />
+
+              <span className="hidden sm:inline text-xs font-bold">
+                THỂ LỆ VÒNG 2
+              </span>
+            </button>
+          )}
+
+          {/* NÚT QUẢN TRỊ */}
+
+          <Link
+            href="/admin"
+            aria-label="Admin"
+            title="Quản trị"
+            className="glass rounded-xl w-10 h-10 flex items-center justify-center text-slate-400 hover:text-amber-300 shrink-0 transition"
+          >
+            <Settings size={18} />
+          </Link>
+
+        </div>
 
       </header>
 
       {/* ==================================================
-          THỂ LỆ VÒNG 2
+          THỂ LỆ VÒNG 2 - POPUP
       ================================================== */}
 
-      {rules && (
-        <section className="mx-3 md:mx-8 mb-4 glass rounded-[24px] overflow-hidden">
+      {showRules && rules && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() =>
+            setShowRules(false)
+          }
+        >
 
-          <div className="relative p-4 md:p-7">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="round2-rules-title"
+            className="glass rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
 
-            <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_20%_30%,rgba(246,200,95,.16),transparent_35%)]" />
+            {/* POPUP HEADER */}
 
-            <div className="relative">
+            <div className="flex items-start justify-between gap-4 p-5 md:p-7 border-b border-white/10">
 
-              <div className="text-[9px] md:text-xs tracking-[.3em] text-amber-300">
-                THỂ LỆ VÒNG 2
-              </div>
+              <div>
 
-              <h2 className="text-xl md:text-3xl font-black mt-1">
-                {rules.title}
-              </h2>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3 mt-4">
-
-                <div className="rounded-xl bg-black/20 p-3">
-
-                  <div className="text-[9px] uppercase tracking-widest text-slate-500">
-                    Ngày
-                  </div>
-
-                  <div className="font-bold text-sm md:text-base mt-1">
-                    {rules.date}
-                  </div>
-
+                <div className="text-[9px] md:text-xs tracking-[.3em] text-amber-300">
+                  THỂ LỆ VÒNG 2
                 </div>
 
-                <div className="rounded-xl bg-black/20 p-3">
-
-                  <div className="text-[9px] uppercase tracking-widest text-slate-500">
-                    Thời gian
-                  </div>
-
-                  <div className="font-bold text-sm md:text-base mt-1">
-                    {rules.time}
-                  </div>
-
-                </div>
-
-                <div className="rounded-xl bg-black/20 p-3 col-span-2 md:col-span-1">
-
-                  <div className="text-[9px] uppercase tracking-widest text-slate-500">
-                    Tập trung
-                  </div>
-
-                  <div className="font-bold text-sm md:text-base mt-1">
-                    {rules.location}
-                  </div>
-
-                </div>
+                <h2
+                  id="round2-rules-title"
+                  className="text-xl md:text-3xl font-black mt-1"
+                >
+                  {rules.title}
+                </h2>
 
               </div>
 
-              {rules.content && (
-                <div className="mt-4 text-xs md:text-sm text-slate-300 leading-relaxed max-w-5xl">
-                  {rules.content}
+              <button
+                type="button"
+                aria-label="Đóng thể lệ"
+                title="Đóng"
+                onClick={() =>
+                  setShowRules(false)
+                }
+                className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition shrink-0"
+              >
+                <X size={20} />
+              </button>
+
+            </div>
+
+            {/* POPUP CONTENT */}
+
+            <div className="p-5 md:p-7 overflow-y-auto max-h-[calc(90vh-110px)]">
+
+              <div className="relative">
+
+                <div className="absolute inset-0 opacity-40 pointer-events-none bg-[radial-gradient(circle_at_20%_10%,rgba(246,200,95,.16),transparent_35%)]" />
+
+                <div className="relative">
+
+                  {/* THÔNG TIN CƠ BẢN */}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
+
+                    <div className="rounded-xl bg-black/20 p-4">
+
+                      <div className="text-[9px] uppercase tracking-widest text-slate-500">
+                        Ngày
+                      </div>
+
+                      <div className="font-bold text-sm md:text-base mt-1">
+                        {rules.date}
+                      </div>
+
+                    </div>
+
+                    <div className="rounded-xl bg-black/20 p-4">
+
+                      <div className="text-[9px] uppercase tracking-widest text-slate-500">
+                        Thời gian
+                      </div>
+
+                      <div className="font-bold text-sm md:text-base mt-1">
+                        {rules.time}
+                      </div>
+
+                    </div>
+
+                    <div className="rounded-xl bg-black/20 p-4">
+
+                      <div className="text-[9px] uppercase tracking-widest text-slate-500">
+                        Tập trung
+                      </div>
+
+                      <div className="font-bold text-sm md:text-base mt-1">
+                        {rules.location}
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  {/* NỘI DUNG THỂ LỆ */}
+
+                  {rules.content && (
+                    <div className="mt-5 rounded-2xl bg-black/20 border border-white/5 p-4 md:p-5">
+
+                      <div className="text-[10px] uppercase tracking-widest text-amber-300/80 mb-3">
+                        Nội dung thể lệ
+                      </div>
+
+                      <div className="text-sm md:text-base text-slate-200 leading-7 whitespace-pre-line">
+                        {rules.content}
+                      </div>
+
+                    </div>
+                  )}
+
                 </div>
-              )}
+
+              </div>
 
             </div>
 
           </div>
 
-        </section>
+        </div>
       )}
 
       {/* ==================================================
@@ -396,43 +516,55 @@ export default function PublicScreen() {
 
               {teamState.finishedAt ? (
                 <div className="mt-5 grid grid-cols-2 gap-2">
+
                   <div className="rounded-2xl bg-black/20 p-4">
+
                     <div className="text-[10px] uppercase tracking-widest text-slate-500">
                       Thứ hạng
                     </div>
+
                     <div className="text-2xl font-black text-amber-300 mt-1">
                       #{getFinishRank(selectedTeam.id) ?? '—'}
                     </div>
+
                   </div>
 
                   <div className="rounded-2xl bg-black/20 p-4">
+
                     <div className="text-[10px] uppercase tracking-widest text-slate-500">
                       Về đích lúc
                     </div>
+
                     <div className="text-lg font-black text-white mt-2">
                       {formatFinishTime(
                         teamState.finishedAt
                       )}
                     </div>
+
                   </div>
 
                   {publishedResults.length > 0 && (
                     <div className="col-span-2 rounded-2xl border border-amber-300/20 bg-amber-300/5 p-4">
+
                       <div className="text-[10px] uppercase tracking-widest text-slate-500">
                         Điểm chung cuộc
                       </div>
+
                       <div className="text-3xl font-black text-amber-300 mt-1">
                         {publishedResults.find(
                           (item) =>
                             item.teamId ===
                             selectedTeam.id
                         )?.finalScore ?? 0}
+
                         <span className="text-sm ml-1">
                           điểm
                         </span>
                       </div>
+
                     </div>
                   )}
+
                 </div>
               ) : (
                 <div className="mt-5 p-4 rounded-2xl bg-black/20 text-sm text-slate-400">
@@ -465,7 +597,9 @@ export default function PublicScreen() {
         <div className="mx-3 md:mx-8 mb-8 glass rounded-2xl p-4 md:p-5">
 
           <div className="flex items-center justify-between gap-3">
+
             <div>
+
               <h3 className="font-black text-sm md:text-base">
                 🏆 {publishedResults.length
                   ? 'KẾT QUẢ CHUNG CUỘC'
@@ -479,23 +613,30 @@ export default function PublicScreen() {
                     )}`
                   : 'Cập nhật theo thời điểm các đội về đích'}
               </p>
+
             </div>
 
             <span className="text-[10px] uppercase tracking-widest text-emerald-300">
               LIVE
             </span>
+
           </div>
 
           <div className="grid md:grid-cols-4 gap-2 mt-3">
 
             {rank.map((item, index) => (
+
               <button
                 key={item.team.id}
                 type="button"
-                onClick={() => setSelected(item.team.id)}
+                onClick={() =>
+                  setSelected(item.team.id)
+                }
                 className="rounded-xl bg-black/20 p-3 text-left hover:bg-white/5 transition"
               >
+
                 <div className="flex items-center justify-between gap-2">
+
                   <span className="font-bold truncate">
                     {['🥇', '🥈', '🥉', '🏅'][index]}{' '}
                     {item.team.name}
@@ -504,9 +645,11 @@ export default function PublicScreen() {
                   <span className="font-black text-amber-300 shrink-0">
                     #{item.result?.finishRank ?? item.liveRank}
                   </span>
+
                 </div>
 
                 <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+
                   <span>
                     {formatFinishTime(item.at)}
                   </span>
@@ -518,8 +661,11 @@ export default function PublicScreen() {
                   ) : (
                     <span>Đã về đích</span>
                   )}
+
                 </div>
+
               </button>
+
             ))}
 
           </div>
