@@ -5,156 +5,107 @@ import { AppState } from './types';
 import { INITIAL } from './data';
 import { supabase } from './supabaseClient';
 
-const ROW_ID = 'main';
+const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 
-const clone = <T,>(value: T): T =>
-  JSON.parse(JSON.stringify(value));
+const ROW_ID = 1;
 
-function mergeWithDefaults(data: Partial<AppState> | null): AppState {
-  const base = clone(INITIAL);
-
-  if (!data) return base;
-
-  return {
-    ...base,
-    ...data,
-    teams: {
-      ...base.teams,
-      ...(data.teams || {}),
-    },
-    round2Rules: data.round2Rules
-      ? {
-          ...base.round2Rules,
-          ...data.round2Rules,
-        }
-      : base.round2Rules,
-  };
+export function load(): AppState {
+  return clone(INITIAL);
 }
 
-// ======================================================
-// LOAD
-// ======================================================
-
-export async function load(): Promise<AppState> {
-  if (!supabase) {
-    return clone(INITIAL);
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('app_state')
-      .select('data')
-      .eq('id', ROW_ID)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Supabase load error:', error);
-      return clone(INITIAL);
-    }
-
-    return mergeWithDefaults(data?.data || null);
-  } catch (error) {
-    console.error('Load state error:', error);
-    return clone(INITIAL);
-  }
-}
-
-// ======================================================
-// SAVE
-// ======================================================
-
-export async function saveAll(next: AppState): Promise<AppState> {
-  const state = mergeWithDefaults(next);
-
-  if (!supabase) {
-    return state;
-  }
-
-  const { error } = await supabase
-    .from('app_state')
-    .upsert(
-      {
-        id: ROW_ID,
-        data: state,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'id',
-      }
-    );
-
-  if (error) {
-    console.error('Supabase save error:', error);
-    throw error;
-  }
-
-  return state;
-}
-
-// ======================================================
-// RESET
-// ======================================================
-
-export async function reset(): Promise<AppState> {
-  const state = clone(INITIAL);
-  return saveAll(state);
-}
-
-// ======================================================
-// REALTIME STATE
-// ======================================================
-
-export function useLiveState(): AppState {
-  const [state, setState] = useState<AppState>(
-    clone(INITIAL)
-  );
-
-  useEffect(() => {
-  let mounted = true;
-
+export async function saveAll(next: AppState) {
   const client = supabase;
 
   if (!client) {
-    setState(INITIAL);
-    return () => {
-      mounted = false;
-    };
+    console.error('Supabase chưa được cấu hình.');
+    return next;
   }
 
-  loadState().then((data) => {
-    if (mounted && data) {
-      setState(data);
+  const { error } = await client
+    .from('app_state')
+    .upsert({
+      id: ROW_ID,
+      data: next,
+    });
+
+  if (error) {
+    console.error('Không thể lưu AppState:', error);
+  }
+
+  return next;
+}
+
+export async function reset() {
+  const next = clone(INITIAL);
+  await saveAll(next);
+  return next;
+}
+
+export function useLiveState() {
+  const [state, setState] = useState<AppState>(clone(INITIAL));
+
+  useEffect(() => {
+    let mounted = true;
+
+    const client = supabase;
+
+    if (!client) {
+      console.warn('Supabase chưa được cấu hình.');
+      return () => {
+        mounted = false;
+      };
     }
-  });
 
-  const channel = client
-    .channel('app-state-realtime')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'app_state',
-      },
-      (payload) => {
-        if (!mounted) return;
+    // Đọc state hiện tại từ Supabase
+    const fetchState = async () => {
+      const { data, error } = await client
+        .from('app_state')
+        .select('data')
+        .eq('id', ROW_ID)
+        .maybeSingle();
 
-        const next = payload.new as {
-          data?: AppState;
-        };
-
-        if (next?.data) {
-          setState(next.data);
-        }
+      if (error) {
+        console.error('Không thể đọc AppState:', error);
+        return;
       }
-    )
-    .subscribe();
 
-  return () => {
-    mounted = false;
-    client.removeChannel(channel);
-  };
-}, []);
+      if (mounted && data?.data) {
+        setState(data.data as AppState);
+      }
+    };
+
+    fetchState();
+
+    // Realtime: mọi thay đổi trong app_state sẽ cập nhật màn hình ngay
+    const channel = client
+      .channel('app-state-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'app_state',
+          filter: `id=eq.${ROW_ID}`,
+        },
+        (payload) => {
+          if (!mounted) return;
+
+          const newData = payload.new as {
+            data?: AppState;
+          };
+
+          if (newData?.data) {
+            setState(newData.data);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      client.removeChannel(channel);
+    };
+  }, []);
 
   return state;
 }
