@@ -110,49 +110,51 @@ export function useLiveState(): AppState {
   );
 
   useEffect(() => {
-    let mounted = true;
+  let mounted = true;
 
-    async function initialLoad() {
-      const loaded = await load();
+  const client = supabase;
 
-      if (mounted) {
-        setState(loaded);
-      }
-    }
-
-    initialLoad();
-
-    if (!supabase) {
-      return () => {
-        mounted = false;
-      };
-    }
-
-    const channel = supabase
-      .channel('banacode-live-state')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'app_state',
-        },
-        (payload) => {
-          const nextData =
-            (payload.new as { data?: Partial<AppState> })?.data;
-
-          if (nextData && mounted) {
-            setState(mergeWithDefaults(nextData));
-          }
-        }
-      )
-      .subscribe();
-
+  if (!client) {
+    setState(INITIAL);
     return () => {
-  mounted = false;
-  client.removeChannel(channel);
-};
-  }, []);
+      mounted = false;
+    };
+  }
+
+  loadState().then((data) => {
+    if (mounted && data) {
+      setState(data);
+    }
+  });
+
+  const channel = client
+    .channel('app-state-realtime')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'app_state',
+      },
+      (payload) => {
+        if (!mounted) return;
+
+        const next = payload.new as {
+          data?: AppState;
+        };
+
+        if (next?.data) {
+          setState(next.data);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    mounted = false;
+    client.removeChannel(channel);
+  };
+}, []);
 
   return state;
 }
