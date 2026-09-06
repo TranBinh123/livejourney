@@ -46,37 +46,37 @@ export const CHECKPOINTS: Checkpoint[] = [
   {
     id: 0,
     name: 'Cổng Thời Gian',
-    symbol: '⌁',
+    symbol: '🕰️',
     challenges: 0,
   },
   {
     id: 1,
     name: 'Con trâu',
-    symbol: '🍀',
+    symbol: '🦁',
     challenges: 2,
   },
   {
     id: 2,
     name: 'Khu vực chân núi',
-    symbol: '🌸',
+    symbol: '🚡',
     challenges: 2,
   },
   {
     id: 3,
     name: 'Vườn hoa',
-    symbol: '⭐',
+    symbol: '🚀',
     challenges: 2,
   },
   {
     id: 4,
     name: 'Nhà cổ',
-    symbol: '🌊',
+    symbol: '💐',
     challenges: 2,
   },
   {
     id: 5,
     name: 'Quảng trường nhật thực',
-    symbol: '🍃',
+    symbol: '🚩',
     challenges: 2,
   },
   {
@@ -88,7 +88,7 @@ export const CHECKPOINTS: Checkpoint[] = [
   {
     id: 7,
     name: 'Fantasy Park',
-    symbol: '🌾',
+    symbol: '💥',
     challenges: 2,
   },
   {
