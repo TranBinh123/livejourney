@@ -45,7 +45,7 @@ export const TEAMS: Team[] = [
 export const CHECKPOINTS: Checkpoint[] = [
   {
     id: 0,
-    name: 'Cổng Thời Gian',
+    name: 'XUẤT PHÁT',
     symbol: '🕰️',
     challenges: 0,
   },
