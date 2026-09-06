@@ -16,13 +16,13 @@ export const TEAMS: Team[] = [
     id: 'ops',
     name: 'Ban Vận hành',
     color: '#35c759',
-    icon: '⚙',
+    icon: '⚙️',
   },
   {
     id: 'food',
     name: 'Ban Ẩm thực',
     color: '#ffd60a',
-    icon: '👨‍🍳',
+    icon: '🧑‍🍳',
   },
   {
     id: 'tech',
