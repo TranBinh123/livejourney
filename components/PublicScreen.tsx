@@ -54,7 +54,12 @@ export default function PublicScreen() {
   const publishedResults: TeamScoreResult[] =
     state.finalResults || [];
 
-  const rank = publishedResults.length
+  const rank: Array<{
+    result: TeamScoreResult | null;
+    team: (typeof TEAMS)[number];
+    at: string | undefined;
+    liveRank: number;
+  }> = publishedResults.length
     ? publishedResults
         .filter((item) => item.finished)
         .sort(
@@ -62,7 +67,7 @@ export default function PublicScreen() {
             (a.finishRank ?? 999) -
             (b.finishRank ?? 999)
         )
-        .map((result) => ({
+        .map((result, index) => ({
           result,
           team:
             TEAMS.find(
@@ -71,6 +76,8 @@ export default function PublicScreen() {
           at:
             state.teams[result.teamId]
               .finishedAt,
+          liveRank:
+            result.finishRank ?? index + 1,
         }))
     : liveRank.map((item, index) => ({
         result: null,
