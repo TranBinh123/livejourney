@@ -6,7 +6,6 @@ import { Settings } from 'lucide-react';
 
 import {
   TEAMS,
-  CHECKPOINTS,
 } from '@/lib/data';
 
 import { useLiveState } from '@/lib/store';
@@ -31,13 +30,6 @@ export default function PublicScreen() {
   const teamState =
     selected
       ? state.teams[selected]
-      : null;
-
-  const currentCheckpoint =
-    teamState
-      ? CHECKPOINTS[
-          teamState.current
-        ]
       : null;
 
   const rules =
@@ -238,11 +230,6 @@ export default function PublicScreen() {
               team.id
             ];
 
-          const checkpoint =
-            CHECKPOINTS[
-              current.current
-            ];
-
           return (
             <button
               key={team.id}
@@ -279,8 +266,8 @@ export default function PublicScreen() {
 
                   <div className="text-[11px] md:text-xs text-slate-400 truncate">
                     {current.finishedAt
-                      ? 'FINISH'
-                      : checkpoint.name}
+                      ? 'ĐÃ VỀ ĐÍCH'
+                      : 'ĐANG DI CHUYỂN'}
                   </div>
 
                 </div>
@@ -340,136 +327,19 @@ export default function PublicScreen() {
 
                   <div className="text-sm text-slate-400">
                     {teamState.finishedAt
-                      ? '🏆 FINISH'
-                      : `Vị trí: ${currentCheckpoint?.name}`}
+                      ? '🏆 ĐÃ VỀ ĐÍCH'
+                      : '🚶 ĐANG DI CHUYỂN'}
                   </div>
 
                 </div>
 
               </div>
 
-              {currentCheckpoint &&
-                currentCheckpoint.challenges >
-                  0 && (
-
-                  <div className="mt-5 p-4 rounded-2xl bg-black/20">
-
-                    <div className="text-xs uppercase tracking-widest text-slate-500">
-                      Tiến độ thử thách tại đây
-                    </div>
-
-                    <div className="mt-3 space-y-2">
-
-                      {Array.from({
-                        length:
-                          currentCheckpoint.challenges,
-                      }).map(
-                        (_, index) => {
-
-                          const done =
-                            !!teamState
-                              .challengesDone[
-                              teamState.current
-                            ]?.[
-                              index
-                            ];
-
-                          return (
-                            <div
-                              key={index}
-                              className="flex justify-between text-sm"
-                            >
-
-                              <span>
-                                Thử thách{' '}
-                                {index + 1}
-                              </span>
-
-                              <span
-                                className={
-                                  done
-                                    ? 'text-emerald-400'
-                                    : 'text-slate-500'
-                                }
-                              >
-                                {done
-                                  ? '✓ Hoàn thành'
-                                  : '✕ Chưa hoàn thành'}
-                              </span>
-
-                            </div>
-                          );
-                        }
-                      )}
-
-                    </div>
-
-                  </div>
-                )}
-
-              <div className="mt-4 text-sm">
-
-                <span className="text-slate-400">
-                  Trạng thái:
-                </span>{' '}
-
-                {teamState.finishedAt
-                  ? 'Đã hoàn thành hành trình'
-                  : teamState.completedAt[
-                      teamState.current
-                    ]
-                  ? 'Đã hoàn thành địa điểm'
-                  : 'Đang ở checkpoint'}
-
+              <div className="mt-5 p-4 rounded-2xl bg-black/20 text-sm text-slate-400">
+                Hành trình của đội đang được giữ bí mật.
+                Theo dõi bảng xếp hạng và thời điểm về đích
+                tại đây nhé!
               </div>
-
-              {Object.keys(
-                teamState.completedAt
-              ).length > 0 && (
-
-                <div className="mt-5">
-
-                  <div className="text-xs uppercase tracking-widest text-slate-500 mb-2">
-                    Lịch sử
-                  </div>
-
-                  <div className="max-h-36 overflow-auto space-y-1 text-xs text-slate-400">
-
-                    {Object.entries(
-                      teamState.completedAt
-                    ).map(
-                      ([key, value]) => (
-
-                        <div
-                          key={key}
-                          className="flex justify-between"
-                        >
-
-                          <span>
-                            {
-                              CHECKPOINTS[
-                                Number(key)
-                              ].name
-                            }
-                          </span>
-
-                          <span>
-                            {new Date(
-                              value
-                            ).toLocaleTimeString(
-                              'vi-VN'
-                            )}
-                          </span>
-
-                        </div>
-
-                      )
-                    )}
-
-                  </div>
-
-                </div>
-              )}
 
               <button
                 className="mt-6 w-full rounded-xl py-3 bg-white/10"
