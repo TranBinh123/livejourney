@@ -249,33 +249,43 @@ export default function AdminPanel() {
   // COMPLETE CHECKPOINT
   // ====================================================
 
-  const toggleComplete = (
-    team: TeamId,
-    cp: number,
-    value: boolean
-  ) => {
-    updateDraft((next) => {
-      const teamState = next.teams[team];
+const toggleComplete = (
+  team: TeamId,
+  cp: number,
+  value: boolean
+) => {
+  updateDraft((next) => {
+    const teamState = next.teams[team];
 
-      if (value) {
-        const now =
-          new Date().toISOString();
+    if (value) {
+      const now = new Date().toISOString();
 
-        teamState.completedAt[cp] = now;
+      // Ghi nhận đội đã hoàn thành địa điểm hiện tại
+      teamState.completedAt[cp] = now;
 
-        // Đích đến
-        if (cp === CHECKPOINTS.length - 1) {
-          teamState.finishedAt = now;
-        }
-      } else {
-        delete teamState.completedAt[cp];
-
-        if (cp === CHECKPOINTS.length - 1) {
-          delete teamState.finishedAt;
-        }
+      // Nếu đây là Cổng Đích → ghi nhận về đích
+      if (cp === CHECKPOINTS.length - 1) {
+        teamState.finishedAt = now;
+        return;
       }
-    });
-  };
+
+      // Nếu chưa phải đích → chuyển sang địa điểm tiếp theo
+      teamState.current = cp + 1;
+
+    } else {
+      // Bỏ trạng thái hoàn thành
+      delete teamState.completedAt[cp];
+
+      // Quay lại địa điểm vừa bỏ tick
+      teamState.current = cp;
+
+      // Nếu đây là đích → xóa thời gian về đích
+      if (cp === CHECKPOINTS.length - 1) {
+        delete teamState.finishedAt;
+      }
+    }
+  });
+};
 
   // ====================================================
   // UPDATE ROUND 2 RULES
