@@ -12,7 +12,6 @@ type RouteStep =
   | {
       type: 'checkpoint';
       index: number;
-      side: 'left' | 'right' | 'center';
     }
   | {
       type: 'mist';
@@ -34,22 +33,18 @@ const ROUTE: RouteStep[] = [
   {
     type: 'checkpoint',
     index: 0,
-    side: 'center',
   },
   {
     type: 'checkpoint',
     index: 1,
-    side: 'right',
   },
   {
     type: 'checkpoint',
     index: 2,
-    side: 'left',
   },
   {
     type: 'checkpoint',
     index: 3,
-    side: 'right',
   },
   {
     type: 'mist',
@@ -58,7 +53,6 @@ const ROUTE: RouteStep[] = [
   {
     type: 'checkpoint',
     index: 6,
-    side: 'left',
   },
   {
     type: 'mist',
@@ -67,12 +61,10 @@ const ROUTE: RouteStep[] = [
   {
     type: 'checkpoint',
     index: 8,
-    side: 'right',
   },
   {
     type: 'checkpoint',
     index: 9,
-    side: 'center',
   },
 ];
 
@@ -461,255 +453,65 @@ function VerticalLine() {
 }
 
 /* =========================================================
-   MOBILE
+   STRAIGHT VERTICAL ROUTE (dùng chung cho mobile & desktop)
    ========================================================= */
 
-function MobileRoute({
+function StraightRoute({
   state,
   onTeam,
-}: Props) {
+  mobile = false,
+}: Props & { mobile?: boolean }) {
   return (
-    <div className="relative w-full py-4">
+    <div
+      className={`
+        relative
+        mx-auto
+        w-full
+        ${
+          mobile
+            ? 'max-w-[280px] py-4'
+            : 'max-w-md py-8'
+        }
+      `}
+    >
       <VerticalLine />
 
-      <div className="relative flex flex-col gap-1">
+      <div className="relative flex flex-col items-center">
         {ROUTE.map((step, routeIndex) => {
           if (step.type === 'mist') {
             return (
               <MistZone
-                key={`mobile-mist-${routeIndex}`}
+                key={`mist-${routeIndex}`}
                 indexes={step.indexes}
                 state={state}
                 onTeam={onTeam}
-                mobile
+                mobile={mobile}
               />
             );
           }
 
-          const isLeft =
-            step.side === 'left';
-
-          const isRight =
-            step.side === 'right';
-
           return (
             <div
-              key={`mobile-checkpoint-${step.index}`}
-              className="
+              key={`checkpoint-${step.index}`}
+              className={`
                 relative
                 flex
-                min-h-[86px]
                 w-full
                 items-center
-              "
-            >
-              {/* Nhánh ngang sang trái */}
-              {isLeft && (
-                <div
-                  className="
-                    absolute
-                    left-[12%]
-                    right-1/2
-                    top-1/2
-                    h-px
-                    bg-white/15
-                  "
-                >
-                  <span
-                    className="
-                      absolute
-                      right-0
-                      top-1/2
-                      -translate-y-1/2
-                      text-[9px]
-                      text-white/40
-                    "
-                  >
-                    ▶
-                  </span>
-                </div>
-              )}
-
-              {/* Nhánh ngang sang phải */}
-              {isRight && (
-                <div
-                  className="
-                    absolute
-                    left-1/2
-                    right-[12%]
-                    top-1/2
-                    h-px
-                    bg-white/15
-                  "
-                >
-                  <span
-                    className="
-                      absolute
-                      left-0
-                      top-1/2
-                      -translate-y-1/2
-                      text-[9px]
-                      text-white/40
-                    "
-                  >
-                    ◀
-                  </span>
-                </div>
-              )}
-
-              <div
-                className={`
-                  flex
-                  w-full
-                  ${
-                    isLeft
-                      ? 'justify-start pl-[7%]'
-                      : isRight
-                      ? 'justify-end pr-[7%]'
-                      : 'justify-center'
-                  }
-                `}
-              >
-                <CheckpointNode
-                  index={step.index}
-                  state={state}
-                  onTeam={onTeam}
+                justify-center
+                ${
                   mobile
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
-   DESKTOP / TV
-   ========================================================= */
-
-function DesktopRoute({
-  state,
-  onTeam,
-}: Props) {
-  return (
-    <div className="relative mx-auto w-full max-w-5xl py-8">
-      <VerticalLine />
-
-      <div className="relative flex flex-col gap-2">
-        {ROUTE.map((step, routeIndex) => {
-          if (step.type === 'mist') {
-            return (
-              <MistZone
-                key={`desktop-mist-${routeIndex}`}
-                indexes={step.indexes}
+                    ? 'min-h-[86px]'
+                    : 'min-h-[108px]'
+                }
+              `}
+            >
+              <CheckpointNode
+                index={step.index}
                 state={state}
                 onTeam={onTeam}
+                mobile={mobile}
               />
-            );
-          }
-
-          const isLeft =
-            step.side === 'left';
-
-          const isRight =
-            step.side === 'right';
-
-          const isCenter =
-            step.side === 'center';
-
-          return (
-            <div
-              key={`desktop-checkpoint-${step.index}`}
-              className="
-                relative
-                grid
-                min-h-[108px]
-                grid-cols-3
-                items-center
-              "
-            >
-              {/* BÊN TRÁI */}
-              <div className="flex justify-end pr-10">
-                {isLeft && (
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="
-                        relative
-                        h-px
-                        w-28
-                        bg-white/15
-                      "
-                    >
-                      <span
-                        className="
-                          absolute
-                          right-0
-                          top-1/2
-                          -translate-y-1/2
-                          text-[10px]
-                          text-white/40
-                        "
-                      >
-                        ▶
-                      </span>
-                    </div>
-
-                    <CheckpointNode
-                      index={step.index}
-                      state={state}
-                      onTeam={onTeam}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* GIỮA */}
-              <div className="flex justify-center">
-                {isCenter && (
-                  <CheckpointNode
-                    index={step.index}
-                    state={state}
-                    onTeam={onTeam}
-                  />
-                )}
-              </div>
-
-              {/* BÊN PHẢI */}
-              <div className="flex justify-start pl-10">
-                {isRight && (
-                  <div className="flex items-center gap-4">
-                    <CheckpointNode
-                      index={step.index}
-                      state={state}
-                      onTeam={onTeam}
-                    />
-
-                    <div
-                      className="
-                        relative
-                        h-px
-                        w-28
-                        bg-white/15
-                      "
-                    >
-                      <span
-                        className="
-                          absolute
-                          left-0
-                          top-1/2
-                          -translate-y-1/2
-                          text-[10px]
-                          text-white/40
-                        "
-                      >
-                        ◀
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           );
         })}
@@ -730,15 +532,16 @@ export default function Timeline({
     <>
       {/* Mobile */}
       <div className="block md:hidden">
-        <MobileRoute
+        <StraightRoute
           state={state}
           onTeam={onTeam}
+          mobile
         />
       </div>
 
       {/* Desktop / TV */}
       <div className="hidden md:block">
-        <DesktopRoute
+        <StraightRoute
           state={state}
           onTeam={onTeam}
         />
