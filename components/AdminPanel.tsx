@@ -108,23 +108,36 @@ export default function AdminPanel() {
   // LOAD DATA
   // ====================================================
 
-  useEffect(() => {
-    let mounted = true;
+useEffect(() => {
+  let mounted = true;
 
-    async function loadData() {
+  async function loadData() {
+    try {
       const state = await load();
 
       if (mounted) {
         setDraft(state);
       }
+    } catch (error) {
+      console.error(
+        'Không thể tải dữ liệu quản trị:',
+        error
+      );
+
+      if (mounted) {
+        alert(
+          'Không thể tải dữ liệu từ hệ thống. Vui lòng kiểm tra kết nối và thử lại.'
+        );
+      }
     }
+  }
 
-    loadData();
+  loadData();
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  return () => {
+    mounted = false;
+  };
+}, []);
 
   // ====================================================
   // LOGIN
