@@ -37,6 +37,42 @@ import {
 } from '@/lib/scoring';
 
 // ======================================================
+// HELPER
+// ======================================================
+
+function getLastCompletedCheckpoint(
+  teamState: AppState['teams'][TeamId]
+) {
+  const entries = Object.entries(
+    teamState.completedAt || {}
+  );
+
+  if (entries.length === 0) {
+    return null;
+  }
+
+  const latest = entries
+    .map(([id, at]) => ({
+      id: Number(id),
+      at,
+    }))
+    .filter(
+      (item) =>
+        Number.isFinite(item.id) &&
+        CHECKPOINTS[item.id]
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.at).getTime() -
+        new Date(a.at).getTime()
+    )[0];
+
+  return latest
+    ? CHECKPOINTS[latest.id]
+    : null;
+}
+
+// ======================================================
 // COMPONENT
 // ======================================================
 
@@ -179,6 +215,10 @@ export default function AdminPanel() {
     );
   }
 
+  // ====================================================
+  // DATA LOADING
+  // ====================================================
+
   if (!draft) {
     return (
       <main className="min-h-screen flex items-center justify-center text-slate-400">
@@ -198,7 +238,9 @@ export default function AdminPanel() {
       if (!current) return current;
 
       const next: AppState =
-        JSON.parse(JSON.stringify(current));
+        JSON.parse(
+          JSON.stringify(current)
+        );
 
       updater(next);
 
@@ -232,16 +274,21 @@ export default function AdminPanel() {
     value: boolean
   ) => {
     updateDraft((next) => {
-      const teamState = next.teams[team];
+      const teamState =
+        next.teams[team];
 
       const arr =
         teamState.challengesDone[cp]
-          ? [...teamState.challengesDone[cp]]
+          ? [
+              ...teamState
+                .challengesDone[cp],
+            ]
           : [false, false];
 
       arr[slot] = value;
 
-      teamState.challengesDone[cp] = arr;
+      teamState.challengesDone[cp] =
+        arr;
     });
   };
 
@@ -249,43 +296,59 @@ export default function AdminPanel() {
   // COMPLETE CHECKPOINT
   // ====================================================
 
-const toggleComplete = (
-  team: TeamId,
-  cp: number,
-  value: boolean
-) => {
-  updateDraft((next) => {
-    const teamState = next.teams[team];
+  const toggleComplete = (
+    team: TeamId,
+    cp: number,
+    value: boolean
+  ) => {
+    updateDraft((next) => {
+      const teamState =
+        next.teams[team];
 
-    if (value) {
-      const now = new Date().toISOString();
+      if (value) {
+        const now =
+          new Date().toISOString();
 
-      // Ghi nhận đội đã hoàn thành địa điểm hiện tại
-      teamState.completedAt[cp] = now;
+        // Ghi nhận thời điểm hoàn thành
+        teamState.completedAt[cp] =
+          now;
 
-      // Nếu đây là Cổng Đích → ghi nhận về đích
-      if (cp === CHECKPOINTS.length - 1) {
-        teamState.finishedAt = now;
-        return;
+        // Nếu là checkpoint cuối
+        // → ghi nhận về đích
+        if (
+          cp ===
+          CHECKPOINTS.length - 1
+        ) {
+          teamState.finishedAt =
+            now;
+
+          return;
+        }
+
+        // Chưa phải đích
+        // → tự động chuyển sang checkpoint kế tiếp
+        teamState.current =
+          cp + 1;
+      } else {
+        // Bỏ trạng thái hoàn thành
+        delete teamState.completedAt[
+          cp
+        ];
+
+        // Quay lại checkpoint vừa bỏ tick
+        teamState.current = cp;
+
+        // Nếu bỏ tick tại đích
+        // → xoá trạng thái về đích
+        if (
+          cp ===
+          CHECKPOINTS.length - 1
+        ) {
+          delete teamState.finishedAt;
+        }
       }
-
-      // Nếu chưa phải đích → chuyển sang địa điểm tiếp theo
-      teamState.current = cp + 1;
-
-    } else {
-      // Bỏ trạng thái hoàn thành
-      delete teamState.completedAt[cp];
-
-      // Quay lại địa điểm vừa bỏ tick
-      teamState.current = cp;
-
-      // Nếu đây là đích → xóa thời gian về đích
-      if (cp === CHECKPOINTS.length - 1) {
-        delete teamState.finishedAt;
-      }
-    }
-  });
-};
+    });
+  };
 
   // ====================================================
   // UPDATE ROUND 2 RULES
@@ -320,7 +383,9 @@ const toggleComplete = (
       await saveAll(draft);
 
       setSavedAt(
-        new Date().toLocaleTimeString('vi-VN')
+        new Date().toLocaleTimeString(
+          'vi-VN'
+        )
       );
     } catch {
       alert(
@@ -365,7 +430,7 @@ const toggleComplete = (
   };
 
   // ====================================================
-  // RENDER
+  // RULES
   // ====================================================
 
   const rules =
@@ -376,6 +441,10 @@ const toggleComplete = (
       location: '',
       content: '',
     };
+
+  // ====================================================
+  // RENDER
+  // ====================================================
 
   return (
     <main className="min-h-screen p-3 md:p-8">
@@ -574,7 +643,9 @@ const toggleComplete = (
 
         </div>
 
-        {/* MOBILE */}
+        {/* ==================================================
+            MOBILE
+        ================================================== */}
 
         <div className="md:hidden space-y-3">
 
@@ -598,11 +669,18 @@ const toggleComplete = (
                 teamState.current
               ];
 
+            const lastCompleted =
+              getLastCompletedCheckpoint(
+                teamState
+              );
+
             return (
               <div
                 key={team.id}
                 className="rounded-2xl bg-black/20 p-4"
               >
+
+                {/* TEAM */}
 
                 <div className="flex items-center gap-2 mb-4">
 
@@ -621,6 +699,8 @@ const toggleComplete = (
 
                 </div>
 
+                {/* CURRENT LOCATION */}
+
                 <label className="block text-xs text-slate-500 mb-1">
                   Đội đang ở
                 </label>
@@ -630,44 +710,50 @@ const toggleComplete = (
                   onChange={(e) =>
                     setLocation(
                       team.id,
-                      Number(e.target.value)
+                      Number(
+                        e.target.value
+                      )
                     )
                   }
-                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm mb-4"
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm"
                 >
-                  {Object.keys(teamState.completedAt).length > 0 && (
-  <div className="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-400/20 px-3 py-2 text-xs text-emerald-300">
-    ✓ Đã hoàn thành:{' '}
-    {
-      CHECKPOINTS[
-        Math.max(
-          ...Object.keys(
-            teamState.completedAt
-          ).map(Number)
-        )
-      ]?.name
-    }
-  </div>
-)}
-                  {CHECKPOINTS.map((item) => (
-                    <option
-                      key={item.id}
-                      value={item.id}
-                    >
-                      {item.name}
-                    </option>
-                  ))}
+                  {CHECKPOINTS.map(
+                    (item) => (
+                      <option
+                        key={item.id}
+                        value={item.id}
+                      >
+                        {item.name}
+                      </option>
+                    )
+                  )}
                 </select>
 
+                {/* LAST COMPLETED */}
+
+                {lastCompleted && (
+                  <div className="mt-3 rounded-lg bg-emerald-500/10 border border-emerald-400/20 px-3 py-2 text-xs text-emerald-300">
+                    ✓ Đã hoàn thành gần nhất:{' '}
+                    <b>
+                      {lastCompleted.name}
+                    </b>
+                  </div>
+                )}
+
+                {/* CHALLENGES */}
+
                 {cp.challenges > 0 && (
-                  <div className="space-y-3">
+                  <div className="space-y-3 mt-4">
 
                     {cp.challenges >= 1 && (
                       <label className="flex items-center gap-2 text-sm">
+
                         <input
                           type="checkbox"
                           className="w-5 h-5 accent-emerald-500"
-                          checked={!!done[0]}
+                          checked={
+                            !!done[0]
+                          }
                           onChange={(e) =>
                             toggleChallenge(
                               team.id,
@@ -677,16 +763,21 @@ const toggleComplete = (
                             )
                           }
                         />
+
                         Thử thách 1
+
                       </label>
                     )}
 
                     {cp.challenges >= 2 && (
                       <label className="flex items-center gap-2 text-sm">
+
                         <input
                           type="checkbox"
                           className="w-5 h-5 accent-emerald-500"
-                          checked={!!done[1]}
+                          checked={
+                            !!done[1]
+                          }
                           onChange={(e) =>
                             toggleChallenge(
                               team.id,
@@ -696,12 +787,16 @@ const toggleComplete = (
                             )
                           }
                         />
+
                         Thử thách 2
+
                       </label>
                     )}
 
                   </div>
                 )}
+
+                {/* COMPLETE */}
 
                 <label className="flex items-center gap-2 text-sm font-bold mt-4 pt-4 border-t border-white/10">
 
@@ -722,13 +817,19 @@ const toggleComplete = (
 
                 </label>
 
+                <div className="text-[11px] text-slate-500 mt-2">
+                  Tick mục này để ghi nhận đội rời địa điểm và tự động chuyển sang điểm tiếp theo.
+                </div>
+
               </div>
             );
           })}
 
         </div>
 
-        {/* DESKTOP */}
+        {/* ==================================================
+            DESKTOP
+        ================================================== */}
 
         <div className="hidden md:block overflow-x-auto">
 
@@ -758,6 +859,10 @@ const toggleComplete = (
                   Hoàn thành
                 </th>
 
+                <th className="p-3 text-left">
+                  Gần nhất đã hoàn thành
+                </th>
+
               </tr>
 
             </thead>
@@ -784,11 +889,18 @@ const toggleComplete = (
                     teamState.current
                   ];
 
+                const lastCompleted =
+                  getLastCompletedCheckpoint(
+                    teamState
+                  );
+
                 return (
                   <tr
                     key={team.id}
                     className="border-b border-white/10"
                   >
+
+                    {/* TEAM */}
 
                     <td className="p-3">
 
@@ -811,10 +923,14 @@ const toggleComplete = (
 
                     </td>
 
+                    {/* LOCATION */}
+
                     <td className="p-3">
 
                       <select
-                        value={teamState.current}
+                        value={
+                          teamState.current
+                        }
                         onChange={(e) =>
                           setLocation(
                             team.id,
@@ -825,6 +941,7 @@ const toggleComplete = (
                         }
                         className="bg-black/30 border border-white/10 rounded-lg px-2 py-1.5"
                       >
+
                         {CHECKPOINTS.map(
                           (item) => (
                             <option
@@ -835,9 +952,12 @@ const toggleComplete = (
                             </option>
                           )
                         )}
+
                       </select>
 
                     </td>
+
+                    {/* CHALLENGE 1 */}
 
                     <td className="p-3 text-center">
 
@@ -845,7 +965,9 @@ const toggleComplete = (
                         <input
                           type="checkbox"
                           className="w-6 h-6 accent-emerald-500"
-                          checked={!!done[0]}
+                          checked={
+                            !!done[0]
+                          }
                           onChange={(e) =>
                             toggleChallenge(
                               team.id,
@@ -863,13 +985,17 @@ const toggleComplete = (
 
                     </td>
 
+                    {/* CHALLENGE 2 */}
+
                     <td className="p-3 text-center">
 
                       {cp.challenges >= 2 ? (
                         <input
                           type="checkbox"
                           className="w-6 h-6 accent-emerald-500"
-                          checked={!!done[1]}
+                          checked={
+                            !!done[1]
+                          }
                           onChange={(e) =>
                             toggleChallenge(
                               team.id,
@@ -886,6 +1012,8 @@ const toggleComplete = (
                       )}
 
                     </td>
+
+                    {/* COMPLETE */}
 
                     <td className="p-3 text-center">
 
@@ -904,6 +1032,23 @@ const toggleComplete = (
 
                     </td>
 
+                    {/* LAST COMPLETED */}
+
+                    <td className="p-3">
+
+                      {lastCompleted ? (
+                        <div className="text-xs text-emerald-300">
+                          ✓{' '}
+                          {lastCompleted.name}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-600">
+                          Chưa có
+                        </span>
+                      )}
+
+                    </td>
+
                   </tr>
                 );
               })}
@@ -914,13 +1059,30 @@ const toggleComplete = (
 
         </div>
 
-        <p className="text-xs text-slate-500 mt-5 leading-relaxed">
-          Chọn địa điểm đội đang đứng → tick
-          Thử thách 1 / 2 nếu đã hoàn thành →
-          tick <b>Hoàn thành địa điểm</b> khi đội
-          rời địa điểm. Đội có thể bỏ một hoặc cả
-          hai thử thách để tiếp tục hành trình.
-        </p>
+        {/* ==================================================
+            NOTE
+        ================================================== */}
+
+        <div className="mt-5 rounded-xl bg-white/[0.03] border border-white/5 p-4">
+
+          <p className="text-xs text-slate-400 leading-relaxed">
+            <b className="text-slate-300">
+              Cách vận hành:
+            </b>{' '}
+            Chọn địa điểm đội đang đứng →
+            tick Thử thách 1 / 2 nếu đã hoàn thành →
+            tick <b>Hoàn thành địa điểm</b> khi đội
+            rời địa điểm.
+          </p>
+
+          <p className="text-xs text-slate-500 leading-relaxed mt-2">
+            Đội có thể bỏ một hoặc cả hai thử thách
+            để tiết kiệm thời gian và tiếp tục hành trình.
+            Việc hoàn thành địa điểm hoàn toàn độc lập
+            với việc hoàn thành thử thách.
+          </p>
+
+        </div>
 
       </section>
 
@@ -952,9 +1114,17 @@ const toggleComplete = (
               KẾT QUẢ CHUNG CUỘC
             </h2>
 
-            <p className="text-xs text-slate-400 mb-5">
-              Điểm về đích: hạng 1 = 100đ · hạng 2 = 80đ · hạng 3 = 60đ · hạng 4 = 40đ.
-              Mỗi thử thách không hoàn thành = <b className="text-red-400">-10đ</b>.
+            <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+              Điểm về đích:
+              hạng 1 = 100đ ·
+              hạng 2 = 80đ ·
+              hạng 3 = 60đ ·
+              hạng 4 = 40đ.
+              <br />
+              Mỗi thử thách không hoàn thành =
+              <b className="text-red-400">
+                {' '}-10đ
+              </b>.
             </p>
 
             <div className="overflow-x-auto">
@@ -987,88 +1157,104 @@ const toggleComplete = (
 
                 <tbody>
 
-                  {results.map((result, index) => (
+                  {results.map(
+                    (result, index) => (
 
-                    <tr
-                      key={result.teamId}
-                      className="border-b border-white/10"
-                    >
+                      <tr
+                        key={
+                          result.teamId
+                        }
+                        className="border-b border-white/10"
+                      >
 
-                      <td className="p-3">
+                        <td className="p-3">
 
-                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
 
-                          <span className="font-black text-slate-500 w-5">
-                            {index + 1}
+                            <span className="font-black text-slate-500 w-5">
+                              {index + 1}
+                            </span>
+
+                            <span>
+                              {result.icon}
+                            </span>
+
+                            <span
+                              className="font-bold"
+                              style={{
+                                color:
+                                  result.color,
+                              }}
+                            >
+                              {result.name}
+                            </span>
+
+                          </div>
+
+                          <div className="text-[11px] text-slate-500 ml-7 mt-1">
+
+                            {result.finished
+                              ? `Về đích hạng ${result.finishRank}`
+                              : 'Chưa về đích'}
+
+                            {' · '}
+
+                            {result.totalChallengesDone}
+                            /
+                            {result.totalChallenges}
+
+                            {' thử thách hoàn thành'}
+
+                          </div>
+
+                        </td>
+
+                        {/* BASE POINTS */}
+
+                        <td className="p-3 text-center">
+
+                          <span className="font-black text-lg">
+                            {result.basePoints}
                           </span>
 
-                          <span>
-                            {result.icon}
+                          <span className="text-xs text-slate-500">
+                            đ
                           </span>
 
-                          <span
-                            className="font-bold"
-                            style={{
-                              color: result.color,
-                            }}
-                          >
-                            {result.name}
+                        </td>
+
+                        {/* PENALTY */}
+
+                        <td className="p-3 text-center">
+
+                          <span className="font-black text-red-400 text-lg">
+                            {result.penalty}
                           </span>
 
-                        </div>
+                          <span className="text-xs text-red-400">
+                            đ
+                          </span>
 
-                        <div className="text-[11px] text-slate-500 ml-7 mt-1">
-                          {result.finished
-                            ? `Về đích hạng ${result.finishRank}`
-                            : 'Chưa về đích'}
-                          {' · '}
-                          {result.totalChallengesDone}
-                          /
-                          {result.totalChallenges}
-                          {' thử thách hoàn thành'}
-                        </div>
+                        </td>
 
-                      </td>
+                        {/* FINAL */}
 
-                      <td className="p-3 text-center">
+                        <td className="p-3 text-center">
 
-                        <span className="font-black text-lg">
-                          {result.basePoints}
-                        </span>
+                          <span className="font-black text-xl text-amber-300">
+                            {result.finalScore}
+                          </span>
 
-                        <span className="text-xs text-slate-500">
-                          đ
-                        </span>
+                          <span className="text-xs text-slate-400">
+                            đ
+                          </span>
 
-                      </td>
+                        </td>
 
-                      <td className="p-3 text-center">
+                      </tr>
 
-                        <span className="font-black text-red-400 text-lg">
-                          {result.penalty}
-                        </span>
-
-                        <span className="text-xs text-red-400">
-                          đ
-                        </span>
-
-                      </td>
-
-                      <td className="p-3 text-center">
-
-                        <span className="font-black text-xl text-amber-300">
-                          {result.finalScore}
-                        </span>
-
-                        <span className="text-xs text-slate-400">
-                          đ
-                        </span>
-
-                      </td>
-
-                    </tr>
-
-                  ))}
+                    )
+                  )}
 
                 </tbody>
 
@@ -1076,20 +1262,28 @@ const toggleComplete = (
 
             </div>
 
+            {/* PENALTY EXPLANATION */}
+
             <div className="mt-5 rounded-xl bg-red-500/10 border border-red-400/20 p-4 text-xs text-slate-300">
 
               <b className="text-red-400">
                 Quy tắc điểm trừ:
               </b>{' '}
               Mỗi thử thách không hoàn thành bị
-              trừ 10 điểm. Ví dụ một đội không hoàn
-              thành 5 thử thách thì điểm trừ là
-              -50 điểm.
+              trừ 10 điểm.
+
+              <br />
+
+              Ví dụ một đội không hoàn thành
+              5 thử thách thì điểm trừ là
+              <b className="text-red-400">
+                {' '}-50 điểm
+              </b>.
 
             </div>
 
             <button
-              className="mt-5 w-full rounded-xl py-3 bg-white/10"
+              className="mt-5 w-full rounded-xl py-3 bg-white/10 hover:bg-white/15"
               onClick={() =>
                 setShowResults(false)
               }
