@@ -20,61 +20,55 @@ type RouteStep =
     };
 
 /*
- * Bản đồ công khai không hiển thị toàn bộ checkpoint theo dạng
- * đánh số tuần tự.
+ * Tuyến đường hiển thị trên màn hình Public.
  *
- * Các checkpoint được gom vào vùng "Mây mù / Vùng khám phá"
- * để giữ bí mật hành trình.
+ * Không hiển thị số thứ tự checkpoint.
+ * Không hiển thị tên các checkpoint trung gian.
  *
- * Tất cả checkpoint thật vẫn tồn tại trong AppState và Admin.
+ * Một số checkpoint được gom vào vùng MÂY MÙ /
+ * VÙNG KHÁM PHÁ để giữ bí mật hành trình.
+ *
+ * App vẫn quản lý đầy đủ toàn bộ checkpoint ở phía Admin.
  */
 const ROUTE: RouteStep[] = [
   {
     type: 'checkpoint',
     index: 0,
     side: 'center',
-  } 
-
+  },
   {
     type: 'checkpoint',
     index: 1,
     side: 'right',
   },
-
   {
     type: 'checkpoint',
     index: 2,
     side: 'left',
   },
-
   {
     type: 'checkpoint',
     index: 3,
     side: 'right',
   },
-
   {
     type: 'mist',
     indexes: [4, 5],
   },
-
   {
     type: 'checkpoint',
     index: 6,
     side: 'left',
   },
-
   {
     type: 'mist',
     indexes: [7],
   },
-
   {
     type: 'checkpoint',
     index: 8,
     side: 'right',
   },
-
   {
     type: 'checkpoint',
     index: 9,
@@ -86,7 +80,8 @@ function getTeamsAtCheckpoint(
   state: AppState,
   checkpointIndex: number
 ) {
-  const isFinish = checkpointIndex === CHECKPOINTS.length - 1;
+  const isFinish =
+    checkpointIndex === CHECKPOINTS.length - 1;
 
   return TEAMS.filter((team) => {
     const teamState = state.teams[team.id];
@@ -112,10 +107,12 @@ function TeamMarkers({
   teams: typeof TEAMS;
   onTeam: (id: TeamId) => void;
 }) {
-  if (!teams.length) return null;
+  if (teams.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="flex flex-wrap justify-center gap-2 mt-3">
+    <div className="mt-3 flex flex-wrap justify-center gap-2">
       {teams.map((team) => (
         <button
           key={team.id}
@@ -129,15 +126,12 @@ function TeamMarkers({
             boxShadow: `0 0 14px ${team.color}33`,
           }}
           className="
-            w-9 h-9
+            flex h-9 w-9 shrink-0
+            items-center justify-center
             rounded-xl
             border
-            flex
-            items-center
-            justify-center
             text-base
-            shrink-0
-            transition-all
+            transition-transform
             hover:scale-110
             active:scale-95
           "
@@ -151,121 +145,121 @@ function TeamMarkers({
 
 function CheckpointNode({
   index,
-  side,
   state,
   onTeam,
+  mobile = false,
 }: {
   index: number;
-  side: 'left' | 'right' | 'center';
   state: AppState;
   onTeam: (id: TeamId) => void;
+  mobile?: boolean;
 }) {
   const checkpoint = CHECKPOINTS[index];
 
-  if (!checkpoint) return null;
+  if (!checkpoint) {
+    return null;
+  }
 
-  const teamsHere = getTeamsAtCheckpoint(state, index);
+  const teamsHere = getTeamsAtCheckpoint(
+    state,
+    index
+  );
 
   const isStart = index === 0;
-  const isFinish = index === CHECKPOINTS.length - 1;
+  const isFinish =
+    index === CHECKPOINTS.length - 1;
   const isActive = teamsHere.length > 0;
 
   return (
-    <div
-      className={`
-        relative
-        flex
-        w-full
-        items-center
-        ${
-          side === 'left'
-            ? 'justify-start'
-            : side === 'right'
-            ? 'justify-end'
-            : 'justify-center'
-        }
-      `}
-    >
+    <div className="relative z-10 flex flex-col items-center">
+      {isStart && (
+        <div
+          className="
+            mb-2
+            whitespace-nowrap
+            text-center
+            text-[10px]
+            font-semibold
+            uppercase
+            tracking-[0.18em]
+            text-slate-200
+            sm:text-xs
+          "
+        >
+          CỔNG THỜI GIAN
+        </div>
+      )}
+
       <div
         className={`
           relative
-          z-10
           flex
-          flex-col
           items-center
+          justify-center
+          rounded-full
+          border
+          border-white/20
+          bg-slate-950/75
+          backdrop-blur-md
+          shadow-lg
+          transition-all
           ${
-            side === 'left'
-              ? 'mr-[28%]'
-              : side === 'right'
-              ? 'ml-[28%]'
+            mobile
+              ? 'h-12 w-12 text-xl'
+              : 'h-14 w-14 text-2xl'
+          }
+          ${
+            isActive
+              ? 'scale-110 border-white/50 pulse'
+              : ''
+          }
+          ${
+            isFinish
+              ? 'ring-2 ring-amber-300/50'
               : ''
           }
         `}
       >
-        {isStart && (
-          <div className="mb-2 text-[10px] sm:text-xs font-semibold tracking-[0.18em] uppercase text-slate-200 text-center whitespace-nowrap">
-            CỔNG THỜI GIAN
-          </div>
-        )}
-
-        <div
-          className={`
-            relative
-            flex
-            h-12
-            w-12
-            sm:h-14
-            sm:w-14
-            items-center
-            justify-center
-            rounded-full
-            border
-            border-white/20
-            bg-slate-950/70
-            backdrop-blur-md
-            text-xl
-            sm:text-2xl
-            shadow-lg
-            transition-all
-            ${
-              isActive
-                ? 'pulse scale-110 border-white/50'
-                : ''
-            }
-            ${
-              isFinish
-                ? 'ring-2 ring-amber-300/50'
-                : ''
-            }
-          `}
-        >
+        <span className="relative z-10">
           {checkpoint.symbol}
+        </span>
 
-          {isActive && (
-            <span
-              className="
-                absolute
-                -inset-1
-                rounded-full
-                border
-                border-white/20
-                animate-ping
-              "
-            />
-          )}
-        </div>
-
-        <TeamMarkers
-          teams={teamsHere}
-          onTeam={onTeam}
-        />
-
-        {isFinish && (
-          <div className="mt-2 text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase text-amber-200 text-center whitespace-nowrap">
-            ĐÍCH ĐẾN
-          </div>
+        {isActive && (
+          <span
+            className="
+              absolute
+              -inset-1
+              rounded-full
+              border
+              border-white/20
+              animate-ping
+            "
+          />
         )}
       </div>
+
+      <TeamMarkers
+        teams={teamsHere}
+        onTeam={onTeam}
+      />
+
+      {isFinish && (
+        <div
+          className="
+            mt-2
+            whitespace-nowrap
+            text-center
+            text-[10px]
+            font-bold
+            uppercase
+            tracking-[0.2em]
+            text-amber-200
+            sm:text-xs
+          "
+        >
+          ĐÍCH ĐẾN
+        </div>
+      )}
     </div>
   );
 }
@@ -274,73 +268,161 @@ function MistZone({
   indexes,
   state,
   onTeam,
+  mobile = false,
 }: {
   indexes: number[];
   state: AppState;
   onTeam: (id: TeamId) => void;
+  mobile?: boolean;
 }) {
   const teamsInMist = TEAMS.filter((team) => {
-    const current = state.teams[team.id]?.current;
+    const teamState = state.teams[team.id];
 
-    return (
-      !state.teams[team.id]?.finishedAt &&
-      indexes.includes(current)
-    );
+    if (!teamState || teamState.finishedAt) {
+      return false;
+    }
+
+    return indexes.includes(teamState.current);
   });
 
   return (
-    <div className="relative z-10 flex w-full justify-center py-3 sm:py-5">
+    <div
+      className={`
+        relative
+        z-10
+        flex
+        w-full
+        justify-center
+        ${
+          mobile
+            ? 'py-3'
+            : 'py-5'
+        }
+      `}
+    >
       <div
         className="
           relative
           flex
-          min-h-[92px]
-          w-[76%]
-          max-w-[310px]
+          min-h-[96px]
+          w-[78%]
+          max-w-[340px]
           flex-col
           items-center
           justify-center
           overflow-hidden
-          rounded-[28px]
+          rounded-[30px]
           border
           border-white/10
           bg-white/[0.055]
+          px-4
           backdrop-blur-sm
         "
       >
-        {/* Mây */}
-        <div className="absolute inset-0 opacity-50">
-          <div className="absolute -left-4 top-3 text-3xl blur-[1px]">
+        {/* Mây nền */}
+        <div className="pointer-events-none absolute inset-0 opacity-50">
+          <span
+            className="
+              absolute
+              -left-3
+              top-2
+              text-3xl
+              blur-[1px]
+            "
+          >
             ☁️
-          </div>
+          </span>
 
-          <div className="absolute left-[28%] top-10 text-2xl opacity-80 blur-[1px]">
+          <span
+            className="
+              absolute
+              left-[25%]
+              top-9
+              text-2xl
+              opacity-80
+              blur-[1px]
+            "
+          >
             ☁️
-          </div>
+          </span>
 
-          <div className="absolute right-0 top-5 text-3xl blur-[1px]">
+          <span
+            className="
+              absolute
+              right-0
+              top-4
+              text-3xl
+              blur-[1px]
+            "
+          >
             ☁️
-          </div>
+          </span>
 
-          <div className="absolute left-[12%] bottom-1 text-2xl opacity-70">
+          <span
+            className="
+              absolute
+              bottom-0
+              left-[12%]
+              text-2xl
+              opacity-70
+            "
+          >
             ☁️
-          </div>
+          </span>
 
-          <div className="absolute right-[18%] bottom-2 text-2xl opacity-70">
+          <span
+            className="
+              absolute
+              bottom-1
+              right-[15%]
+              text-2xl
+              opacity-70
+            "
+          >
             ☁️
-          </div>
+          </span>
         </div>
 
-        {/* Dấu chấm tạo cảm giác hành trình tiếp tục */}
-        <div className="relative z-10 mb-1 tracking-[0.45em] text-xs text-slate-400">
+        <div
+          className="
+            relative
+            z-10
+            mb-1
+            text-xs
+            tracking-[0.45em]
+            text-slate-400
+          "
+        >
           · · ·
         </div>
 
-        <div className="relative z-10 text-[10px] sm:text-xs font-semibold tracking-[0.2em] uppercase text-slate-300">
+        <div
+          className="
+            relative
+            z-10
+            text-[10px]
+            font-semibold
+            uppercase
+            tracking-[0.2em]
+            text-slate-300
+            sm:text-xs
+          "
+        >
           MÂY MÙ
         </div>
 
-        <div className="relative z-10 mt-1 text-[9px] sm:text-[10px] tracking-[0.15em] uppercase text-slate-500">
+        <div
+          className="
+            relative
+            z-10
+            mt-1
+            text-[9px]
+            uppercase
+            tracking-[0.15em]
+            text-slate-500
+            sm:text-[10px]
+          "
+        >
           VÙNG KHÁM PHÁ
         </div>
 
@@ -357,16 +439,18 @@ function MistZone({
   );
 }
 
-function VerticalConnector() {
+function VerticalLine() {
   return (
     <div
       className="
+        pointer-events-none
         absolute
+        bottom-0
         left-1/2
         top-0
-        bottom-0
-        -translate-x-1/2
+        z-0
         w-px
+        -translate-x-1/2
         bg-gradient-to-b
         from-transparent
         via-white/20
@@ -376,55 +460,123 @@ function VerticalConnector() {
   );
 }
 
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
 function MobileRoute({
   state,
   onTeam,
 }: Props) {
   return (
-    <div className="relative w-full py-3">
-      <VerticalConnector />
+    <div className="relative w-full py-4">
+      <VerticalLine />
 
       <div className="relative flex flex-col gap-1">
-        {ROUTE.map((step, i) => {
+        {ROUTE.map((step, routeIndex) => {
           if (step.type === 'mist') {
             return (
               <MistZone
-                key={`mist-${i}`}
+                key={`mobile-mist-${routeIndex}`}
                 indexes={step.indexes}
                 state={state}
                 onTeam={onTeam}
+                mobile
               />
             );
           }
 
+          const isLeft =
+            step.side === 'left';
+
+          const isRight =
+            step.side === 'right';
+
           return (
             <div
-              key={`checkpoint-${step.index}`}
-              className="relative flex min-h-[82px] items-center"
+              key={`mobile-checkpoint-${step.index}`}
+              className="
+                relative
+                flex
+                min-h-[86px]
+                w-full
+                items-center
+              "
             >
-              {/* Mũi tên ngang tạo hiệu ứng ziczac */}
-              {step.side === 'left' && (
-                <div className="absolute left-[25%] right-1/2 top-1/2 h-px bg-white/15">
-                  <span className="absolute right-0 -top-[4px] text-[9px] text-white/40">
+              {/* Nhánh ngang sang trái */}
+              {isLeft && (
+                <div
+                  className="
+                    absolute
+                    left-[12%]
+                    right-1/2
+                    top-1/2
+                    h-px
+                    bg-white/15
+                  "
+                >
+                  <span
+                    className="
+                      absolute
+                      right-0
+                      top-1/2
+                      -translate-y-1/2
+                      text-[9px]
+                      text-white/40
+                    "
+                  >
                     ▶
                   </span>
                 </div>
               )}
 
-              {step.side === 'right' && (
-                <div className="absolute left-1/2 right-[25%] top-1/2 h-px bg-white/15">
-                  <span className="absolute left-0 -top-[4px] text-[9px] text-white/40">
+              {/* Nhánh ngang sang phải */}
+              {isRight && (
+                <div
+                  className="
+                    absolute
+                    left-1/2
+                    right-[12%]
+                    top-1/2
+                    h-px
+                    bg-white/15
+                  "
+                >
+                  <span
+                    className="
+                      absolute
+                      left-0
+                      top-1/2
+                      -translate-y-1/2
+                      text-[9px]
+                      text-white/40
+                    "
+                  >
                     ◀
                   </span>
                 </div>
               )}
 
-              <CheckpointNode
-                index={step.index}
-                side={step.side}
-                state={state}
-                onTeam={onTeam}
-              />
+              <div
+                className={`
+                  flex
+                  w-full
+                  ${
+                    isLeft
+                      ? 'justify-start pl-[7%]'
+                      : isRight
+                      ? 'justify-end pr-[7%]'
+                      : 'justify-center'
+                  }
+                `}
+              >
+                <CheckpointNode
+                  index={step.index}
+                  state={state}
+                  onTeam={onTeam}
+                  mobile
+                />
+              </div>
             </div>
           );
         })}
@@ -433,33 +585,24 @@ function MobileRoute({
   );
 }
 
+/* =========================================================
+   DESKTOP / TV
+   ========================================================= */
+
 function DesktopRoute({
   state,
   onTeam,
 }: Props) {
   return (
     <div className="relative mx-auto w-full max-w-5xl py-8">
-      <div
-        className="
-          absolute
-          left-1/2
-          top-5
-          bottom-5
-          -translate-x-1/2
-          w-px
-          bg-gradient-to-b
-          from-transparent
-          via-white/15
-          to-transparent
-        "
-      />
+      <VerticalLine />
 
       <div className="relative flex flex-col gap-2">
-        {ROUTE.map((step, i) => {
+        {ROUTE.map((step, routeIndex) => {
           if (step.type === 'mist') {
             return (
               <MistZone
-                key={`desktop-mist-${i}`}
+                key={`desktop-mist-${routeIndex}`}
                 indexes={step.indexes}
                 state={state}
                 onTeam={onTeam}
@@ -467,37 +610,54 @@ function DesktopRoute({
             );
           }
 
-          const teamsHere = getTeamsAtCheckpoint(
-            state,
-            step.index
-          );
+          const isLeft =
+            step.side === 'left';
 
-          const checkpoint = CHECKPOINTS[step.index];
+          const isRight =
+            step.side === 'right';
 
-          if (!checkpoint) return null;
-
-          const isStart = step.index === 0;
-          const isFinish =
-            step.index === CHECKPOINTS.length - 1;
+          const isCenter =
+            step.side === 'center';
 
           return (
             <div
-              key={`desktop-${step.index}`}
-              className="relative grid min-h-[100px] grid-cols-3 items-center"
+              key={`desktop-checkpoint-${step.index}`}
+              className="
+                relative
+                grid
+                min-h-[108px]
+                grid-cols-3
+                items-center
+              "
             >
-              {/* LEFT */}
+              {/* BÊN TRÁI */}
               <div className="flex justify-end pr-10">
-                {step.side === 'left' && (
+                {isLeft && (
                   <div className="flex items-center gap-4">
-                    <div className="h-px w-28 bg-white/15 relative">
-                      <span className="absolute right-0 -top-[5px] text-[10px] text-white/40">
+                    <div
+                      className="
+                        relative
+                        h-px
+                        w-28
+                        bg-white/15
+                      "
+                    >
+                      <span
+                        className="
+                          absolute
+                          right-0
+                          top-1/2
+                          -translate-y-1/2
+                          text-[10px]
+                          text-white/40
+                        "
+                      >
                         ▶
                       </span>
                     </div>
 
                     <CheckpointNode
                       index={step.index}
-                      side="center"
                       state={state}
                       onTeam={onTeam}
                     />
@@ -505,42 +665,45 @@ function DesktopRoute({
                 )}
               </div>
 
-              {/* CENTER */}
+              {/* GIỮA */}
               <div className="flex justify-center">
-                {step.side === 'center' && (
+                {isCenter && (
                   <CheckpointNode
                     index={step.index}
-                    side="center"
                     state={state}
                     onTeam={onTeam}
                   />
                 )}
-
-                {!isStart &&
-                  !isFinish &&
-                  step.side !== 'left' &&
-                  step.side !== 'right' &&
-                  teamsHere.length > 0 && (
-                    <TeamMarkers
-                      teams={teamsHere}
-                      onTeam={onTeam}
-                    />
-                  )}
               </div>
 
-              {/* RIGHT */}
+              {/* BÊN PHẢI */}
               <div className="flex justify-start pl-10">
-                {step.side === 'right' && (
+                {isRight && (
                   <div className="flex items-center gap-4">
                     <CheckpointNode
                       index={step.index}
-                      side="center"
                       state={state}
                       onTeam={onTeam}
                     />
 
-                    <div className="h-px w-28 bg-white/15 relative">
-                      <span className="absolute left-0 -top-[5px] text-[10px] text-white/40">
+                    <div
+                      className="
+                        relative
+                        h-px
+                        w-28
+                        bg-white/15
+                      "
+                    >
+                      <span
+                        className="
+                          absolute
+                          left-0
+                          top-1/2
+                          -translate-y-1/2
+                          text-[10px]
+                          text-white/40
+                        "
+                      >
                         ◀
                       </span>
                     </div>
@@ -555,13 +718,17 @@ function DesktopRoute({
   );
 }
 
+/* =========================================================
+   MAIN
+   ========================================================= */
+
 export default function Timeline({
   state,
   onTeam,
 }: Props) {
   return (
     <>
-      {/* MOBILE */}
+      {/* Mobile */}
       <div className="block md:hidden">
         <MobileRoute
           state={state}
@@ -569,7 +736,7 @@ export default function Timeline({
         />
       </div>
 
-      {/* DESKTOP / TV */}
+      {/* Desktop / TV */}
       <div className="hidden md:block">
         <DesktopRoute
           state={state}
