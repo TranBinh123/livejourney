@@ -193,7 +193,7 @@ function CheckpointNode({
             sm:text-xs
           "
         >
-          CỔNG THỜI GIAN
+          XUẤT PHÁT
         </div>
       )}
 
